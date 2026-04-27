@@ -1,6 +1,6 @@
 ---
 name: markdown-exporter
-description: Convert Markdown text to DOCX, PPTX, XLSX, PDF, PNG, HTML, IPYNB, MD, CSV, JSON, JSONL, XML files, and extract code blocks in Markdown to Python, Bash,JS and etc files.
+description: Convert Markdown text to DOCX, PPTX, XLSX, PDF, HTML, IPYNB, MD, CSV, JSON, JSONL, XML files, and extract code blocks in Markdown to Python, Bash,JS and etc files.
 license: Apache-2.0
 metadata:
    author: bowenliang123
@@ -30,7 +30,6 @@ This [SKILL.md](https://github.com/bowenliang123/markdown-exporter/blob/main/SKI
 | `md_to_html` | 📝 Markdown text | 🌐 HTML file (.html) |
 | `md_to_html_text` | 📝 Markdown text | 🌐 HTML text string |
 | `md_to_pdf` | 📝 Markdown text | 📑 PDF file (.pdf) |
-| `md_to_png` | 📝 Markdown text | 🖼️ PNG image(s) of PDF pages |
 | `md_to_md` | 📝 Markdown text | 📝 Markdown file (.md) |
 | `md_to_ipynb` | 📝 Markdown text | 📓 Jupyter Notebook (.ipynb) |
 | `md_to_pptx` | 📝 Markdown slides in [Pandoc style](https://pandoc.org/MANUAL.html#slide-shows) | 🎯 PowerPoint (.pptx) |
@@ -469,48 +468,6 @@ markdown-exporter md_to_html_text <input>
 ```bash
 markdown-exporter md_to_html_text /path/input.md
 ```
-
-**Sample Markdown Input:**
-Use the "Basic Text and Tables" example from the [Sample Markdown Inputs - Basic Text and Tables](#basic-text-and-tables) section below.
-
----
-
-### md_to_png - Convert Markdown to PNG Images
-
-Converts Markdown text to PNG images (one per page).
-
-**Usage:**
-```bash
-markdown-exporter md_to_png <input> <output> [options]
-```
-
-**Arguments:**
-- `input` - Input Markdown file path
-- `output` - Output PNG file path or directory path
-
-**Options:**
-- `--compress` - Compress all PNG images into a ZIP file
-- `--strip-wrapper` - Remove code block wrapper if present
-
-**Examples:**
-
-1. **Basic conversion**:
-   ```bash
-   markdown-exporter md_to_png /path/input.md /path/output.png
-   ```
-   This converts the Markdown file to PNG images (one per page).
-
-2. **With compression**:
-   ```bash
-   markdown-exporter md_to_png /path/input.md /path/output.png --compress
-   ```
-   This converts the Markdown file to PNG images and compresses them into a ZIP file.
-
-3. **With code block wrapper removal**:
-   ```bash
-   markdown-exporter md_to_png /path/input.md /path/output.png --strip-wrapper
-   ```
-   This removes any code block wrappers (```) before processing the Markdown.
 
 **Sample Markdown Input:**
 Use the "Basic Text and Tables" example from the [Sample Markdown Inputs - Basic Text and Tables](#basic-text-and-tables) section below.

@@ -13,7 +13,6 @@ from tools.md_to_json.md_to_json import MarkdownToJsonTool
 from tools.md_to_latex.md_to_latex import MarkdownToLatexTool
 from tools.md_to_md.md_to_md import MarkdownToMarkdownTool
 from tools.md_to_pdf.md_to_pdf import MarkdownToPdfTool
-from tools.md_to_png.md_to_png import MarkdownToPngTool
 from tools.md_to_pptx.md_to_pptx import MarkdownToPptxTool
 from tools.md_to_xlsx.md_to_xlsx import MarkdownToXlsxTool
 from tools.md_to_xml.md_to_xml import MarkdownToXmlTool
@@ -35,7 +34,6 @@ class MdExporterProvider(ToolProvider):
                 MarkdownToLatexTool,
                 MarkdownToMarkdownTool,
                 MarkdownToPdfTool,
-                MarkdownToPngTool,
                 MarkdownToPptxTool,
                 MarkdownToXlsxTool,
                 MarkdownToXmlTool,

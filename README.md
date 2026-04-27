@@ -76,10 +76,6 @@ With support for **15+ output formats**, Markdown Exporter bridges the gap betwe
     <td>📑 PDF file (.pdf)</td>
   </tr>
   <tr>
-    <td><code>md_to_png</code></td>
-    <td>🖼️ PNG image(s) of PDF pages</td>
-  </tr>
-  <tr>
     <td><code>md_to_md</code></td>
     <td>📝 Markdown file (.md)</td>
   </tr>
@@ -332,17 +328,6 @@ Generate professional PDF documents perfect for printing or sharing.
 
 ---
 
-### 🖼️ Markdown → PNG
-
-Convert your Markdown into beautiful PNG images. Great for:
-- Social media posts
-- Documentation screenshots
-- Quick sharing in chat apps
-
-![PNG Example](https://raw.githubusercontent.com/bowenliang123/markdown-exporter/main/_assets/screenshots/md_to_png_1.png)
-
----
-
 ### 🏷️ Markdown → Jupyter Notebook
 
 Transform your Markdown into Jupyter Notebook `.ipynb` format.
@@ -566,13 +551,6 @@ markdown-exporter md_to_html <input> <output> [options]
 markdown-exporter md_to_html_text <input>
 ```
 - **Arguments**: `input` (Markdown file path)
-
-#### md_to_png - Convert Markdown to PNG Images
-```bash
-markdown-exporter md_to_png <input> <output> [options]
-```
-- **Arguments**: `input` (Markdown file path), `output` (PNG file or directory path)
-- **Options**: `--compress` (Compress all PNG images into a ZIP file), `--strip-wrapper` (Remove code block wrapper if present)
 
 #### md_to_md - Convert Markdown to MD File
 ```bash
