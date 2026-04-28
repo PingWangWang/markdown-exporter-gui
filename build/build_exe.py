@@ -157,6 +157,10 @@ cmd = [
     '--hidden-import', 'md_exporter.utils.file_utils',
     '--hidden-import', 'md_exporter.utils.pandoc_utils',
     '--hidden-import', 'md_exporter.utils.table_utils',
+    # 隐藏导入 - DOCX 操作相关
+    '--hidden-import', 'docx',
+    '--hidden-import', 'docx.shared',
+    '--hidden-import', 'lxml',
     # 隐藏导入 - 第三方依赖
     '--hidden-import', 'markdown',
     '--hidden-import', 'pandas',
