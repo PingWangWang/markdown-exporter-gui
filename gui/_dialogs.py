@@ -52,12 +52,9 @@ def show_about(app):
             "本程序为独立可执行文件，无需安装 Python 或任何依赖",
             "转换大文件时请耐心等待，程序不会卡死",
             "输出的文件保存在所选的保存位置目录中",
-            "图片处理方式可在 DOCX/PPTX 转换时选择",
         ]),
         ("项目来源", [
             "GitHub: https://github.com/bowenliang123/markdown-exporter",
-            "PyPI: https://pypi.org/project/md-exporter/",
-            "Dify Market: https://marketplace.dify.ai/plugins/bowenliang123/md_exporter",
         ]),
     ]
 

@@ -81,6 +81,17 @@ if build_dir.exists():
 
 log_success("清理完成")
 
+# 清理 dist/ 目录中的旧版 exe
+dist_dir = project_root / 'dist'
+if dist_dir.exists():
+    old_exes = list(dist_dir.glob('MarkdownExporter_v*.exe'))
+    if old_exes:
+        for old_exe in old_exes:
+            old_exe.unlink()
+            log_info(f"已删除旧版 exe: {old_exe.name}")
+    else:
+        log_info("dist/ 目录中无旧版 exe")
+
 # 分隔符（Windows 用 ;，Linux/Mac 用 :）
 sep = ';' if sys.platform == 'win32' else ':'
 
@@ -158,15 +169,11 @@ cmd = [
     # 添加数据文件
     # 添加 md_exporter 的资源文件
     '--add-data', f"{project_root / 'md_exporter' / 'assets'}{sep}md_exporter/assets",
-    # 添加 Pandoc（内置在 pypandoc-binary 包中）
-    '--add-data', f"{pandoc_exe}{sep}pypandoc/files",
+    # 添加图标资源文件（运行时 _get_icon_path 需要读取）
+    '--add-data', f"{project_root / 'res'}{sep}res",
+    # 添加 Pandoc（内置在 pypandoc-binary 包中）— 打包整个 files/ 目录
+    '--add-data', f"{pandoc_dir}{sep}pypandoc/files",
 ]
-
-# 如果有版权文件，也添加进去
-if copyright_file.exists():
-    cmd += [
-        '--add-data', f"{copyright_file}{sep}pypandoc/files",
-    ]
 
 # 继续添加其他参数
 cmd += [

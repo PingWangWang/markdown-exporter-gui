@@ -18,6 +18,14 @@ if _gui_dir not in sys.path:
 if getattr(sys, '_MEIPASS', None) and sys._MEIPASS not in sys.path:
     sys.path.insert(0, sys._MEIPASS)
 
+# PyInstaller 打包环境：设置 pandoc 路径（内嵌在 pypandoc/files/ 目录下）
+# pypandoc 内部用 'files/pandoc'（无 .exe 后缀）作为全路径查找，Windows 下会失败，
+# 必须通过 PYPANDOC_PANDOC 环境变量显式指定带 .exe 后缀的完整路径。
+if getattr(sys, '_MEIPASS', None):
+    _pandoc_exe_name = 'pandoc.exe' if sys.platform == 'win32' else 'pandoc'
+    _pandoc_exe = os.path.join(sys._MEIPASS, 'pypandoc', 'files', _pandoc_exe_name)
+    os.environ['PYPANDOC_PANDOC'] = _pandoc_exe
+
 import tkinter as tk
 from _app import MarkdownExporterGUI
 
