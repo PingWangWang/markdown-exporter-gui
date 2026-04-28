@@ -27,12 +27,18 @@ if getattr(sys, '_MEIPASS', None):
     os.environ['PYPANDOC_PANDOC'] = _pandoc_exe
 
 import tkinter as tk
+try:
+    from tkinterdnd2 import TkinterDnD
+    _HAS_DND = True
+except ImportError:
+    _HAS_DND = False
+
 from _app import MarkdownExporterGUI
 
 
 def main():
-    root = tk.Tk()
-    MarkdownExporterGUI(root)
+    root = TkinterDnD.Tk() if _HAS_DND else tk.Tk()
+    MarkdownExporterGUI(root, has_dnd=_HAS_DND)
     root.mainloop()
 
 

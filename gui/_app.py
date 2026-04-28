@@ -41,11 +41,12 @@ class MarkdownExporterGUI:
 
     # ── 初始化 ────────────────────────────────────────────────────────────────
 
-    def __init__(self, root):
+    def __init__(self, root, has_dnd=False):
         self.root = root
+        self.has_dnd = has_dnd
         self.root.title(f"Markdown Exporter v{APP_VERSION}")
 
-        window_width, window_height = 750, 580
+        window_width, window_height = 750, 560
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
         self.root.geometry(f"{window_width}x{window_height}+{(sw-window_width)//2}+{(sh-window_height)//2}")
@@ -176,13 +177,32 @@ class MarkdownExporterGUI:
 
         # 选择待处理文件
         ttk.Label(mf, text="选择 Markdown 文件:", style='Field.TLabel').grid(
-            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
+            row=row, column=0, sticky=tk.NW, pady=4, padx=(0, 8))
         ff = ttk.Frame(mf);  ff.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
         ff.columnconfigure(0, weight=1)
-        self.file_entry = ttk.Entry(ff, state='readonly')
-        self.file_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 6))
-        ttk.Button(ff, text="选择文件", command=self.select_files,
-                   style='Select.TButton', width=10).grid(row=0, column=1)
+        # 文件列表框
+        list_frame = tk.Frame(ff, bg=self.C_ENTRY_BG, highlightbackground=self.C_BORDER,
+                              highlightthickness=1)
+        list_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 6))
+        list_frame.columnconfigure(0, weight=1)
+        self.file_listbox = tk.Listbox(
+            list_frame, height=4, selectmode=tk.EXTENDED,
+            bg=self.C_ENTRY_BG, fg='#1F2937',
+            selectbackground='#4A90D9', selectforeground='#FFFFFF',
+            font=('Microsoft YaHei UI', 9), relief='flat', borderwidth=0,
+            activestyle='none')
+        self.file_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=4, pady=2)
+        list_sb = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.file_listbox.yview)
+        list_sb.grid(row=0, column=1, sticky=(tk.N, tk.S), pady=2)
+        self.file_listbox.configure(yscrollcommand=list_sb.set)
+        # 按钮列
+        btn_col = ttk.Frame(ff);  btn_col.grid(row=0, column=1, sticky=tk.N)
+        ttk.Button(btn_col, text="添加文件", command=self.select_files,
+                   style='Select.TButton', width=10).pack(pady=(0, 4))
+        ttk.Button(btn_col, text="清空列表", command=self.clear_files,
+                   style='Select.TButton', width=10).pack()
+        # Delete 键删除选中项
+        self.file_listbox.bind('<Delete>', lambda e: self.remove_selected_files())
         row += 1
 
         # 选择保存位置
@@ -228,7 +248,7 @@ class MarkdownExporterGUI:
         ttk.Label(mf, text="处理日志:", style='Log.TLabel').grid(
             row=row, column=0, sticky=tk.NW, pady=(8, 2), padx=(0, 8))
         self.log_text = scrolledtext.ScrolledText(
-            mf, height=12, wrap=tk.WORD, font=('Consolas', 9),
+            mf, height=7, wrap=tk.WORD, font=('Consolas', 9),
             bg=self.C_LOG_BG, fg=self.C_LOG_FG,
             insertbackground=self.C_LOG_FG,
             selectbackground='#2E86C1', selectforeground='#FFFFFF',
@@ -247,6 +267,32 @@ class MarkdownExporterGUI:
         lbl = ttk.Label(lf, text="查看项目说明及帮助文档 >>", style='Link.TLabel')
         lbl.pack(side=tk.LEFT)
         lbl.bind('<Button-1>', lambda e: self.show_about())
+        ttk.Label(lf, text=f"v{APP_VERSION}", style='Log.TLabel').pack(side=tk.RIGHT)
+
+        # 拖拽支持
+        if self.has_dnd:
+            self._register_drop_target()
+
+    def _register_drop_target(self):
+        """注册整个窗口为拖拽目标，接受 .md / .markdown 文件"""
+        from tkinterdnd2 import DND_FILES
+        self.root.drop_target_register(DND_FILES)
+        self.root.dnd_bind('<<Drop>>', self._on_drop)
+
+    def _on_drop(self, event):
+        """处理拖入的文件列表"""
+        # tkinterdnd2 返回的路径格式：{path1} {path2} 或 path（含空格时用花括号包裹）
+        raw = event.data
+        import re
+        # 解析路径：花括号包裹的整体路径 或 空格分隔的路径
+        paths = re.findall(r'\{([^}]+)\}|([^\s]+)', raw)
+        files = [p[0] or p[1] for p in paths]
+        md_files = [f for f in files if f.lower().endswith(('.md', '.markdown'))]
+        if not md_files:
+            self.log_message('✗ 拖入的文件不含 .md / .markdown 文件，已忽略')
+            return
+        self._add_files(md_files)
+        self.log_message(f'已拖入 {len(md_files)} 个文件')
 
     def on_format_change(self, event=None):
         """当输出格式改变时的回调"""
@@ -277,14 +323,27 @@ class MarkdownExporterGUI:
         files = filedialog.askopenfilenames(title="选择 Markdown 文件", filetypes=filetypes)
         if not files:
             return
-        self.input_files = list(files)
-        display = files[0] if len(files) == 1 else f"已选择 {len(files)} 个文件"
-        self.file_entry.configure(state='normal')
-        self.file_entry.delete(0, tk.END)
-        self.file_entry.insert(0, display)
-        self.file_entry.configure(state='readonly')
-        if not self.output_dir.get():
-            self.output_dir.set(str(Path(files[0]).parent))
+        self._add_files(list(files))
+
+    def _add_files(self, files):
+        """  将文件添加到列表（自动去重）"""
+        existing = set(self.input_files)
+        new_files = [f for f in files if f not in existing]
+        for f in new_files:
+            self.input_files.append(f)
+            self.file_listbox.insert(tk.END, Path(f).name)
+        if not self.output_dir.get() and self.input_files:
+            self.output_dir.set(str(Path(self.input_files[0]).parent))
+
+    def clear_files(self):
+        self.input_files = []
+        self.file_listbox.delete(0, tk.END)
+
+    def remove_selected_files(self):
+        selected = list(self.file_listbox.curselection())
+        for i in reversed(selected):
+            self.file_listbox.delete(i)
+            del self.input_files[i]
 
     def select_output_dir(self):
         d = filedialog.askdirectory(title="选择保存位置")

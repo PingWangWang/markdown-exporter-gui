@@ -165,10 +165,13 @@ cmd = [
     '--hidden-import', 'PIL.Image',
     '--hidden-import', 'pypandoc',
     '--hidden-import', 'jinja2',
+    '--hidden-import', 'tkinterdnd2',
     '--exclude-module', 'tkinter.test',
     # 添加数据文件
     # 添加 md_exporter 的资源文件
     '--add-data', f"{project_root / 'md_exporter' / 'assets'}{sep}md_exporter/assets",
+    # 添加 tkinterdnd2（含原生 DLL）
+    '--add-data', f"{project_root / '.venv' / 'Lib' / 'site-packages' / 'tkinterdnd2'}{sep}tkinterdnd2",
     # 添加图标资源文件（运行时 _get_icon_path 需要读取）
     '--add-data', f"{project_root / 'res'}{sep}res",
     # 添加 Pandoc（内置在 pypandoc-binary 包中）— 打包整个 files/ 目录
