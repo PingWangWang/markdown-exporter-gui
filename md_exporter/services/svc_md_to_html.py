@@ -6,7 +6,10 @@ Provides common functionality for converting Markdown to HTML format
 
 from pathlib import Path
 
+from ..utils import get_logger
 from ..utils.markdown_utils import get_md_text
+
+logger = get_logger(__name__)
 
 
 def convert_md_to_html(md_text: str, output_path: Path, is_strip_wrapper: bool = False) -> None:
@@ -27,8 +30,11 @@ def convert_md_to_html(md_text: str, output_path: Path, is_strip_wrapper: bool =
     # Process Markdown text
     processed_md = get_md_text(md_text, is_strip_wrapper=is_strip_wrapper)
 
+    logger.info(f"Converting Markdown to HTML: {output_path}")
+
     # Convert to HTML
     result = convert_text(processed_md, format="markdown", to="html")
 
     # Write to file
     output_path.write_bytes(result.encode("utf-8"))
+    logger.info(f"Successfully created HTML: {output_path}")

@@ -5,7 +5,10 @@ MdToHtmlText service
 
 from pypandoc import convert_text
 
+from ..utils import get_logger
 from ..utils.markdown_utils import get_md_text
+
+logger = get_logger(__name__)
 
 
 def convert_md_to_html_text(md_text: str, is_strip_wrapper: bool = False) -> str:
@@ -23,9 +26,13 @@ def convert_md_to_html_text(md_text: str, is_strip_wrapper: bool = False) -> str
     # Process Markdown text
     processed_md = get_md_text(md_text, is_strip_wrapper=is_strip_wrapper)
 
+    logger.info("Converting Markdown to HTML text")
+
     # Convert to HTML
     try:
         html_str = convert_text(processed_md, format="markdown", to="html")
+        logger.info("Successfully converted Markdown to HTML text")
         return html_str
     except Exception as e:
+        logger.error(f"Failed to convert Markdown to HTML: {e}")
         raise Exception(f"Failed to convert Markdown to HTML: {e}")

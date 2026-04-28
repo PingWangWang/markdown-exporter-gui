@@ -8,8 +8,11 @@ import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from ..utils import get_logger
 from ..utils.markdown_utils import get_md_text
 from ..utils.pandoc_utils import pandoc_convert_file
+
+logger = get_logger(__name__)
 
 
 def _enforce_code_cells(md_text: str) -> str:
@@ -57,6 +60,7 @@ def convert_md_to_ipynb(md_text: str, output_path: Path, is_strip_wrapper: bool 
 
     try:
         # Convert using pandoc_convert_file
+        logger.info(f"Converting Markdown to IPYNB: {output_path}")
         pandoc_convert_file(
             source_file=temp_md_file_path,
             input_format="markdown",
@@ -64,6 +68,7 @@ def convert_md_to_ipynb(md_text: str, output_path: Path, is_strip_wrapper: bool 
             outputfile=str(output_path),
             extra_args=[],
         )
+        logger.info(f"Successfully created IPYNB: {output_path}")
     finally:
         # Clean up temporary file
         os.unlink(temp_md_file_path)

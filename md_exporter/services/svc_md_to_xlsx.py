@@ -10,8 +10,11 @@ from tempfile import NamedTemporaryFile
 
 import pandas as pd
 
+from ..utils import get_logger
 from ..utils.markdown_utils import get_md_text
 from ..utils.table_utils import SUGGESTED_SHEET_NAME, parse_md_to_tables
+
+logger = get_logger(__name__)
 
 
 def convert_md_to_xlsx(
@@ -33,6 +36,8 @@ def convert_md_to_xlsx(
     # Process Markdown text
     processed_md = get_md_text(md_text, is_strip_wrapper=is_strip_wrapper)
 
+    logger.info(f"Converting Markdown tables to XLSX: {output_path}")
+
     # Parse Markdown tables
     tables = parse_md_to_tables(processed_md, force_value_to_str=force_text)
 
@@ -51,6 +56,7 @@ def convert_md_to_xlsx(
 
         # Read temp file and write to target
         output_path.write_bytes(Path(temp_xlsx_path).read_bytes())
+        logger.info(f"Successfully created XLSX: {output_path}")
     finally:
         # Clean up temporary file
         os.unlink(temp_xlsx_path)

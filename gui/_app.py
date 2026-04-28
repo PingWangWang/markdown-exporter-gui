@@ -59,6 +59,10 @@ class MarkdownExporterGUI:
         self.is_processing = False
         self.last_output_file = None  # 最后一次转换的输出路径（用于"打开文件夹并选中"）
         self.last_single_output = None  # 单文件转换时的输出路径（用于"打开文档"按钮）
+        self.debug_logging = tk.BooleanVar(value=False)  # 调试日志开关，默认关闭
+
+        # 设置GUI日志回调，使服务模块的日志能在GUI中显示
+        self._setup_gui_logging()
 
         self.setup_styles()
         self.create_widgets()
@@ -105,6 +109,26 @@ class MarkdownExporterGUI:
                     pass
         except Exception:
             pass
+
+    def _setup_gui_logging(self):
+        """设置GUI日志回调，使服务模块的日志能在GUI中显示"""
+        try:
+            from md_exporter.utils.logger_utils import set_gui_log_callback
+            
+            # 定义一个线程安全的日志回调函数
+            def gui_log_callback(message):
+                # 使用after方法确保在主线程中更新UI
+                self.root.after(0, lambda: self._log_message_from_service(message))
+            
+            set_gui_log_callback(gui_log_callback)
+        except ImportError:
+            pass  # 如果md_exporter未安装，则忽略
+
+    def _log_message_from_service(self, message):
+        """从服务模块接收日志消息并显示在GUI中"""
+        # 仅在调试模式下显示服务模块的详细日志
+        if self.debug_logging.get():
+            self.log_message(f"[服务] {message}")
 
     # ── 样式 ──────────────────────────────────────────────────────────────────
 
@@ -295,6 +319,21 @@ class MarkdownExporterGUI:
         ttk.Label(mf, text="处理日志:", style="Log.TLabel").grid(
             row=row, column=0, sticky=tk.NW, pady=(8, 2), padx=(0, 8)
         )
+        
+        # 日志区域右侧框架
+        log_right_frame = ttk.Frame(mf)
+        log_right_frame.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=(8, 2))
+        log_right_frame.columnconfigure(0, weight=1)
+        
+        # 调试日志开关（与日志框左对齐）
+        debug_check = ttk.Checkbutton(
+            log_right_frame,
+            text="显示详细日志",
+            variable=self.debug_logging,
+            command=self._on_debug_logging_change
+        )
+        debug_check.grid(row=0, column=0, sticky=tk.W)
+        
         self.log_text = scrolledtext.ScrolledText(
             mf,
             height=7,
@@ -309,8 +348,8 @@ class MarkdownExporterGUI:
             borderwidth=0,
             state="disabled",
         )
-        self.log_text.grid(row=row, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(8, 2))
-        mf.rowconfigure(row, weight=1)
+        self.log_text.grid(row=row+1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(2, 2))
+        mf.rowconfigure(row+1, weight=1)
         for tag, color in [
             ("success", "#2ECC71"),
             ("error", "#E74C3C"),
@@ -320,7 +359,7 @@ class MarkdownExporterGUI:
             ("normal", self.C_LOG_FG),
         ]:
             self.log_text.tag_configure(tag, foreground=color)
-        row += 1
+        row += 2
 
         # 底部链接
         lf = ttk.Frame(mf)
@@ -360,6 +399,13 @@ class MarkdownExporterGUI:
     def on_format_change(self, event=None):
         """当输出格式改变时的回调"""
         pass  # 目前不需要特殊处理
+
+    def _on_debug_logging_change(self):
+        """调试日志开关变化时的回调"""
+        if self.debug_logging.get():
+            self.log_message("[信息] 已启用详细日志模式")
+        else:
+            self.log_message("[信息] 已关闭详细日志模式")
 
     # ── 日志 ──────────────────────────────────────────────────────────────────
 

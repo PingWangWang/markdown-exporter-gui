@@ -69,6 +69,7 @@ def convert_md_to_pptx(
 
     try:
         # Convert using pandoc_convert_file
+        logger.info(f"Converting Markdown to PPTX: {output_path}")
         pandoc_convert_file(
             source_file=temp_md_file_path,
             input_format="markdown",
@@ -76,6 +77,7 @@ def convert_md_to_pptx(
             outputfile=str(output_path),
             extra_args=extra_args,
         )
+        logger.info(f"Successfully created PPTX: {output_path}")
         return output_path
     finally:
         # Clean up temporary file

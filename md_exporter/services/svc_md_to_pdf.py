@@ -6,8 +6,11 @@ Provides common functionality for converting Markdown to PDF format
 
 from pathlib import Path
 
+from ..utils import get_logger
 from ..utils.markdown_utils import convert_markdown_to_html, get_md_text
 from ..utils.text_utils import contains_chinese, contains_japanese
+
+logger = get_logger(__name__)
 
 
 def convert_to_html_with_font_support(md_text: str) -> str:
@@ -71,6 +74,8 @@ def convert_md_to_pdf(md_text: str, output_path: Path, is_strip_wrapper: bool = 
     # Convert to HTML with font support
     html_str = convert_to_html_with_font_support(processed_md)
 
+    logger.info(f"Converting Markdown to PDF: {output_path}")
+
     # Convert to PDF
     result_file_bytes = pisa.CreatePDF(
         src=html_str,
@@ -81,3 +86,4 @@ def convert_md_to_pdf(md_text: str, output_path: Path, is_strip_wrapper: bool = 
 
     # Write to file
     output_path.write_bytes(result_file_bytes)
+    logger.info(f"Successfully created PDF: {output_path}")

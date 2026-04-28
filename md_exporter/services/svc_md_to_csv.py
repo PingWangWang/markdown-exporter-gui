@@ -6,8 +6,11 @@ Provides common functionality for converting Markdown tables to CSV format
 
 from pathlib import Path
 
+from ..utils import get_logger
 from ..utils.markdown_utils import get_md_text
 from ..utils.table_utils import parse_md_to_tables
+
+logger = get_logger(__name__)
 
 
 def convert_md_to_csv(
@@ -31,6 +34,8 @@ def convert_md_to_csv(
     """
     # Process Markdown text
     processed_md = get_md_text(md_text, is_strip_wrapper=is_strip_wrapper)
+
+    logger.info(f"Converting Markdown tables to CSV")
 
     # Parse Markdown tables
     tables = parse_md_to_tables(processed_md)
@@ -57,6 +62,7 @@ def convert_md_to_csv(
         output_file.write_text(csv_str, encoding="utf-8")
         created_files.append(output_file)
 
+    logger.info(f"Successfully created {len(created_files)} CSV file(s): {[str(f) for f in created_files]}")
     return created_files
 
 

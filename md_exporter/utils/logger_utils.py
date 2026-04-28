@@ -1,6 +1,18 @@
 import logging
 import os
 
+global_gui_callback = None
+
+def set_gui_log_callback(callback):
+    global global_gui_callback
+    global_gui_callback = callback
+
+class GuiLogHandler(logging.Handler):
+    def emit(self, record):
+        if global_gui_callback:
+            message = self.format(record)
+            global_gui_callback(message)
+
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
@@ -17,5 +29,12 @@ def get_logger(name: str) -> logging.Logger:
     stdio_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     stdio_handler.setFormatter(stdio_formatter)
     logger.addHandler(stdio_handler)
+    
+    # Add GUI log handler if callback is available
+    if global_gui_callback:
+        gui_handler = GuiLogHandler()
+        gui_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        gui_handler.setFormatter(gui_formatter)
+        logger.addHandler(gui_handler)
 
     return logger
