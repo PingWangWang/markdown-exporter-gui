@@ -213,6 +213,15 @@ def _has_num_pr(paragraph) -> bool:
     return pPr is not None and pPr.find(qn("w:numPr")) is not None
 
 
+def _has_image(paragraph) -> bool:
+    """Return True if the paragraph contains an image."""
+    # Check for drawing elements (inline images)
+    for child in paragraph._element.iter():
+        if child.tag.endswith("drawing") or child.tag.endswith("pic"):
+            return True
+    return False
+
+
 def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> None:
     pf = paragraph.paragraph_format
     pf.line_spacing = config["line_spacing"]
@@ -221,11 +230,16 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
     # List items (w:numPr) manage their own indentation via numbering definition;
     # overriding first_line_indent / left_indent would break bullet alignment.
     if not _has_num_pr(paragraph):
-        if config["first_line_indent"] and not is_table and _needs_no_indent(paragraph):
+        # Image paragraphs should not have first-line indent and should be centered
+        if _has_image(paragraph):
+            pf.first_line_indent = Pt(0)
+            pf.left_indent = Pt(0)
+            pf.alignment = 1  # Center alignment
+        elif config["first_line_indent"] and not is_table and _needs_no_indent(paragraph):
             pf.first_line_indent = Pt(0)
         else:
             pf.first_line_indent = config["first_line_indent"]
-        pf.left_indent = config["left_indent"]
+            pf.left_indent = config["left_indent"]
     if is_table and "alignment" in config:
         pf.alignment = config["alignment"]
 
