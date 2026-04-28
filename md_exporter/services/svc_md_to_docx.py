@@ -449,7 +449,11 @@ def convert_md_to_docx(
             outputfile=str(output_path),
             extra_args=extra_args,
         )
-        _apply_formatting(output_path)
+        # 仅在没有提供自定义模板时应用格式化
+        if not template_path:
+            _apply_formatting(output_path)
+        else:
+            logger.info(f"Using custom template, skipping formatting: {template_path}")
     finally:
         os.unlink(tmp_path)
 

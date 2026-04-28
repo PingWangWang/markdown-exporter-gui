@@ -60,6 +60,8 @@ class MarkdownExporterGUI:
         self.last_output_file = None  # 最后一次转换的输出路径（用于"打开文件夹并选中"）
         self.last_single_output = None  # 单文件转换时的输出路径（用于"打开文档"按钮）
         self.debug_logging = tk.BooleanVar(value=False)  # 调试日志开关，默认关闭
+        self.use_template = tk.BooleanVar(value=False)  # 是否使用自定义模板
+        self.template_path = tk.StringVar()  # 模板文件路径
 
         # 设置GUI日志回调，使服务模块的日志能在GUI中显示
         self._setup_gui_logging()
@@ -295,6 +297,39 @@ class MarkdownExporterGUI:
         self.format_combo.bind("<<ComboboxSelected>>", self.on_format_change)
         row += 1
 
+        # 模板选项（仅DOCX格式显示）
+        self.template_frame = ttk.Frame(mf)
+        self.template_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=4)
+        
+        self.use_template_check = ttk.Checkbutton(
+            self.template_frame,
+            text="使用自定义模板",
+            variable=self.use_template,
+            command=self.on_template_toggle
+        )
+        self.use_template_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+        
+        template_entry = ttk.Entry(
+            self.template_frame,
+            textvariable=self.template_path,
+            state="readonly",
+            width=40
+        )
+        template_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 6))
+        
+        self.select_template_btn = ttk.Button(
+            self.template_frame,
+            text="选择模板",
+            command=self.select_template,
+            style="Select.TButton",
+            width=10,
+            state="disabled"
+        )
+        self.select_template_btn.grid(row=0, column=2)
+        self.template_frame.columnconfigure(1, weight=1)
+        
+        row += 1
+
         # 分割线
         ttk.Separator(mf, orient="horizontal").grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=6)
         row += 1
@@ -398,7 +433,36 @@ class MarkdownExporterGUI:
 
     def on_format_change(self, event=None):
         """当输出格式改变时的回调"""
-        pass  # 目前不需要特殊处理
+        # 仅DOCX格式显示模板选项
+        output_format = self.get_selected_format()
+        if output_format == "DOCX":
+            self.template_frame.grid()
+        else:
+            self.template_frame.grid_remove()
+            self.use_template.set(False)
+            self.template_path.set("")
+
+    def on_template_toggle(self):
+        """模板开关变化时的回调"""
+        if self.use_template.get():
+            self.select_template_btn.configure(state="normal")
+        else:
+            self.select_template_btn.configure(state="disabled")
+            self.template_path.set("")
+
+    def select_template(self):
+        """选择模板文件"""
+        filetypes = [
+            ("Word 模板文件", "*.docx"),
+            ("所有文件", "*.*"),
+        ]
+        template = filedialog.askopenfilename(
+            title="选择 DOCX 模板文件",
+            filetypes=filetypes
+        )
+        if template:
+            self.template_path.set(template)
+            self.log_message(f"已选择模板: {Path(template).name}")
 
     def _on_debug_logging_change(self):
         """调试日志开关变化时的回调"""
@@ -616,7 +680,7 @@ class MarkdownExporterGUI:
 
                 # 根据选择的格式调用相应的服务
                 service_map = {
-                    "DOCX": lambda: svc_md_to_docx.convert_md_to_docx(md_text, output_file),
+                    "DOCX": lambda: self._convert_to_docx(md_text, output_file),
                     "PDF": lambda: svc_md_to_pdf.convert_md_to_pdf(md_text, output_file),
                     "HTML": lambda: svc_md_to_html.convert_md_to_html(md_text, output_file),
                     "PPTX": lambda: svc_md_to_pptx.convert_md_to_pptx(md_text, output_file),
@@ -701,3 +765,24 @@ class MarkdownExporterGUI:
 
     def show_about(self):
         show_about(self)
+
+    def _convert_to_docx(self, md_text, output_file):
+        """转换 Markdown 到 DOCX，支持自定义模板"""
+        from md_exporter.services import svc_md_to_docx
+        
+        # 如果启用自定义模板且已选择模板文件，则使用用户模板
+        if self.use_template.get() and self.template_path.get():
+            template = Path(self.template_path.get())
+            if template.exists():
+                self.log_message(f"  使用自定义模板: {template.name}")
+                svc_md_to_docx.convert_md_to_docx(
+                    md_text,
+                    output_file,
+                    template_path=template
+                )
+            else:
+                self.log_message(f"   模板文件不存在，使用默认模板")
+                svc_md_to_docx.convert_md_to_docx(md_text, output_file)
+        else:
+            # 使用默认模板（不调用自定义格式化）
+            svc_md_to_docx.convert_md_to_docx(md_text, output_file)
