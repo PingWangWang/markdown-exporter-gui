@@ -32,6 +32,10 @@ MANIFEST
 *.manifest
 *.spec
 
+# 允许提交打包脚本和相关文档
+!build/build_exe.py
+!build/README.md
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

@@ -1,0 +1,21 @@
+# Markdown Exporter GUI 依赖
+# 仅包含 GUI 运行所需的最小依赖集
+
+# markdown 解析
+markdown~=3.10.2
+
+# 表格处理（XLSX/CSV）
+pandas[excel,html,xml]~=3.0.1
+
+# PDF 生成
+xhtml2pdf~=0.2.17
+
+# 图像处理
+pillow~=12.1.0
+
+# Pandoc 绑定（DOCX/PPTX/HTML 等转换）
+pypandoc-binary~=1.16.2
+
+# GUI 依赖（可选）
+# tkinter 在 Windows/macOS 上已内置
+# Linux 用户需要: sudo apt-get install python3-tk
