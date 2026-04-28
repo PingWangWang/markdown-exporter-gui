@@ -9,6 +9,9 @@ Markdown Exporter GUI - 对话框组件
 """
 
 import os
+import platform
+import subprocess
+import sys
 import threading
 import tkinter as tk
 import webbrowser
@@ -73,39 +76,17 @@ def show_about(app):
 
     sections = [
         (
-            "功能介绍",
-            [
-                "支持将 Markdown 转换为多种格式：DOCX、PDF、HTML、PPTX、XLSX 等",
-                "批量文件处理，一次转换多个文件",
-                "简单易用的图形界面，无需命令行操作",
-                "所有处理在本地完成，保护您的隐私",
-            ],
-        ),
-        (
-            "支持的输出格式",
-            [
-                "Word 文档 (.docx) - 创建专业的 Word 文档",
-                "PDF 文档 (.pdf) - 生成适合打印的 PDF",
-                "HTML 网页 (.html) - 转换为网页格式",
-                "PowerPoint (.pptx) - 自动创建演示文稿",
-                "Excel 表格 (.xlsx) - 转换表格数据",
-                "CSV/JSON/XML - 结构化数据格式",
-                "LaTeX (.tex) - 学术文档格式",
-                "Jupyter Notebook (.ipynb) - 笔记本格式",
-            ],
-        ),
-        (
-            "注意事项",
-            [
-                "本程序为独立可执行文件，无需安装 Python 或任何依赖",
-                "转换大文件时请耐心等待，程序不会卡死",
-                "输出的文件保存在所选的保存位置目录中",
-            ],
-        ),
-        (
             "项目来源",
             [
+                f"版本: {APP_VERSION}",
+                "作者: bowenliang123",
                 "GitHub: https://github.com/bowenliang123/markdown-exporter",
+            ],
+        ),
+        (
+            "详细文档",
+            [
+                "点击查看 README.md 获取完整使用说明和示例",
             ],
         ),
     ]
@@ -160,6 +141,67 @@ def show_about(app):
                 link_label.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
                 link_label.bind("<Enter>", lambda e: e.widget.config(fg="#4169E1"))
                 link_label.bind("<Leave>", lambda e: e.widget.config(fg="#1E90FF"))
+            # 检查是否为 README 链接
+            elif "README.md" in item:
+                item_frame = tk.Frame(body, bg=app.C_BG)
+                item_frame.pack(fill=tk.X, anchor=tk.W, pady=1)
+                
+                tk.Label(
+                    item_frame,
+                    text="  • ",
+                    bg=app.C_BG,
+                    fg=app.C_LABEL_FG,
+                    font=("Microsoft YaHei UI", 9),
+                    justify="left",
+                ).pack(side=tk.LEFT, anchor=tk.W)
+                
+                readme_link = tk.Label(
+                    item_frame,
+                    text="查看 README.md",
+                    bg=app.C_BG,
+                    fg="#1E90FF",
+                    font=("Microsoft YaHei UI", 9, "underline"),
+                    cursor="hand2",
+                    justify="left",
+                )
+                readme_link.pack(side=tk.LEFT, anchor=tk.W)
+                # 打开本地的 README.md 文件
+                def open_readme(e):
+                    try:
+                        # 获取 README.md 的路径
+                        if getattr(sys, 'frozen', False):
+                            # PyInstaller 打包后的路径 - 文件在 _MEIPASS 临时目录
+                            base_dir = sys._MEIPASS
+                        else:
+                            # 开发环境路径 - 项目根目录
+                            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        
+                        readme_path = os.path.join(base_dir, 'README.md')
+                        
+                        # 调试信息（可选）
+                        # print(f"Looking for README at: {readme_path}")
+                        # print(f"File exists: {os.path.exists(readme_path)}")
+                        
+                        if os.path.exists(readme_path):
+                            # 根据操作系统打开文件
+                            system = platform.system()
+                            if system == 'Windows':
+                                os.startfile(readme_path)
+                            elif system == 'Darwin':  # macOS
+                                subprocess.call(['open', readme_path])
+                            else:  # Linux
+                                subprocess.call(['xdg-open', readme_path])
+                        else:
+                            # 如果本地文件不存在，打开 GitHub URL
+                            webbrowser.open("https://github.com/bowenliang123/markdown-exporter#readme")
+                    except Exception as ex:
+                        # 出错时回退到 GitHub URL
+                        # print(f"Error opening README: {ex}")
+                        webbrowser.open("https://github.com/bowenliang123/markdown-exporter#readme")
+                
+                readme_link.bind("<Button-1>", open_readme)
+                readme_link.bind("<Enter>", lambda e: e.widget.config(fg="#4169E1"))
+                readme_link.bind("<Leave>", lambda e: e.widget.config(fg="#1E90FF"))
             else:
                 tk.Label(
                     body,

@@ -178,6 +178,8 @@ cmd = [
     '--add-data', f"{project_root / '.venv' / 'Lib' / 'site-packages' / 'tkinterdnd2'}{sep}tkinterdnd2",
     # 添加图标资源文件（运行时 _get_icon_path 需要读取）
     '--add-data', f"{project_root / 'res'}{sep}res",
+    # 添加 README.md 文档
+    '--add-data', f"{project_root / 'README.md'}{sep}.",
     # 添加 Pandoc（内置在 pypandoc-binary 包中）— 打包整个 files/ 目录
     '--add-data', f"{pandoc_dir}{sep}pypandoc/files",
 ]
