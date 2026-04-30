@@ -29,84 +29,91 @@ STYLE_CONFIGS: list[dict] = [
         "name": "Heading 1",
         "style_keywords": ["Heading 1"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(20),
         "bold": True,
         "color": RGBColor(0, 0, 0),
         "first_line_indent": Pt(0),
         "left_indent": Pt(0),
         "line_spacing": 1.3,
-        "space_before": Pt(6),
-        "space_after": Pt(6),
+        "space_before": Pt(3),
+        "space_after": Pt(3),
     },
     {
         "name": "Heading 2",
         "style_keywords": ["Heading 2"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(18),
         "bold": True,
         "color": RGBColor(0, 0, 0),
         "first_line_indent": Pt(0),
         "left_indent": Pt(0),
         "line_spacing": 1.3,
-        "space_before": Pt(6),
-        "space_after": Pt(6),
+        "space_before": Pt(3),
+        "space_after": Pt(3),
     },
     {
         "name": "Heading 3",
         "style_keywords": ["Heading 3"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(16),
         "bold": True,
         "color": RGBColor(0, 0, 0),
         "first_line_indent": Pt(0),
         "left_indent": Pt(0),
         "line_spacing": 1.3,
-        "space_before": Pt(6),
-        "space_after": Pt(6),
+        "space_before": Pt(3),
+        "space_after": Pt(3),
     },
     {
         "name": "Heading 4",
         "style_keywords": ["Heading 4"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(14),
         "bold": True,
         "color": RGBColor(0, 0, 0),
         "first_line_indent": Pt(0),
         "left_indent": Pt(0),
         "line_spacing": 1.3,
-        "space_before": Pt(6),
-        "space_after": Pt(6),
+        "space_before": Pt(3),
+        "space_after": Pt(3),
     },
     {
         "name": "Heading 5",
         "style_keywords": ["Heading 5"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(12),
         "bold": True,
         "color": RGBColor(0, 0, 0),
         "first_line_indent": Pt(0),
         "left_indent": Pt(0),
         "line_spacing": 1.3,
-        "space_before": Pt(6),
-        "space_after": Pt(6),
+        "space_before": Pt(3),
+        "space_after": Pt(3),
     },
     {
         "name": "Heading 6",
         "style_keywords": ["Heading 6"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(12),
         "bold": True,
         "color": RGBColor(0, 0, 0),
         "first_line_indent": Pt(0),
         "left_indent": Pt(0),
         "line_spacing": 1.3,
-        "space_before": Pt(6),
-        "space_after": Pt(6),
+        "space_before": Pt(3),
+        "space_after": Pt(3),
     },
     {
         "name": "Normal",
         "style_keywords": ["Normal"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(12),
         "bold": False,
         "color": RGBColor(0, 0, 0),
@@ -120,6 +127,7 @@ STYLE_CONFIGS: list[dict] = [
         "name": "List Paragraph",
         "style_keywords": ["List Paragraph", "List"],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(12),
         "bold": False,
         "color": RGBColor(0, 0, 0),
@@ -134,6 +142,7 @@ STYLE_CONFIGS: list[dict] = [
         "name": "Table Text",
         "style_keywords": [],
         "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
         "font_size": Pt(12),
         "bold": False,
         "color": RGBColor(0, 0, 0),
@@ -185,10 +194,13 @@ def _get_config_for_style(style_name: str) -> dict:
     return _NORMAL_CONFIG
 
 
-def _set_rfonts(rpr_elem, font_name: str) -> None:
+def _set_rfonts(rpr_elem, font_name: str, font_name_latin: str | None = None) -> None:
     rFonts = rpr_elem.get_or_add_rFonts()
-    rFonts.set(qn("w:ascii"), font_name)
-    rFonts.set(qn("w:hAnsi"), font_name)
+    # Set Latin fonts (ascii and hAnsi)
+    latin_font = font_name_latin if font_name_latin else font_name
+    rFonts.set(qn("w:ascii"), latin_font)
+    rFonts.set(qn("w:hAnsi"), latin_font)
+    # Set East Asian fonts
     rFonts.set(qn("w:eastAsia"), font_name)
     rFonts.set(qn("w:cs"), font_name)
     for attr in ("w:asciiTheme", "w:hAnsiTheme", "w:themeEastAsia", "w:cstheme"):
@@ -246,7 +258,7 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
 
     for run in paragraph.runs:
         run.font.color.rgb = config["color"]
-        run.font.name = config["font_name"]
+        run.font.name = config.get("font_name_latin", config["font_name"])
         run.font.size = config["font_size"]
         # Preserve explicit bold set by pandoc (e.g. from **..** markdown);
         # only apply the style's bold value when the run has no explicit bold.
@@ -254,7 +266,11 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
             run.font.bold = True
         elif run.font.bold is not True:
             run.font.bold = config["bold"]
-        _set_rfonts(run._element.get_or_add_rPr(), config["font_name"])
+        _set_rfonts(
+            run._element.get_or_add_rPr(),
+            config["font_name"],
+            config.get("font_name_latin"),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +340,7 @@ def _step2_create_styles(doc) -> None:
             existing_names = {s.name for s in doc.styles}
             style = doc.styles[name] if name in existing_names else doc.styles.add_style(name, 1)
 
-            style.font.name = config["font_name"]
+            style.font.name = config.get("font_name_latin", config["font_name"])
             style.font.size = config["font_size"]
             style.font.bold = config["bold"]
             style.font.color.rgb = config["color"]
@@ -332,7 +348,7 @@ def _step2_create_styles(doc) -> None:
             # Use style.element.get_or_add_rPr() to get CT_RPr — the only
             # reliable path; style.font._element may return CT_Style instead.
             rPr = style.element.get_or_add_rPr()
-            _set_rfonts(rPr, config["font_name"])
+            _set_rfonts(rPr, config["font_name"], config.get("font_name_latin"))
 
             # Strip theme-color overrides
             color_elem = rPr.find(qn("w:color"))
