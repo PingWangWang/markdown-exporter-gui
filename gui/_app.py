@@ -298,8 +298,9 @@ class MarkdownExporterGUI:
         self.format_combo.bind("<<ComboboxSelected>>", self.on_format_change)
         row += 1
 
-        # 模板选项（仅DOCX格式显示）
-        ttk.Label(mf, text="使用自定义模板:", style="Field.TLabel").grid(
+        # 模板选项（仅DOCX和PPTX格式显示）
+        self.template_label = ttk.Label(mf, text="使用自定义模板:", style="Field.TLabel")
+        self.template_label.grid(
             row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
         )
         tf = ttk.Frame(mf)
@@ -339,8 +340,9 @@ class MarkdownExporterGUI:
         
         row += 1
         
-        # 保存 Mermaid 图片选项（仅DOCX格式显示）
-        ttk.Label(mf, text="保存 Mermaid 图片:", style="Field.TLabel").grid(
+        # 保存 Mermaid 图片选项（仅DOCX和PPTX格式显示）
+        self.save_mermaid_label = ttk.Label(mf, text="保存 Mermaid 图片:", style="Field.TLabel")
+        self.save_mermaid_label.grid(
             row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
         )
         mf2 = ttk.Frame(mf)
@@ -461,15 +463,19 @@ class MarkdownExporterGUI:
 
     def on_format_change(self, event=None):
         """当输出格式改变时的回调"""
-        # 仅DOCX格式显示模板选项和保存 Mermaid 图片选项
+        # 仅DOCX和PPTX格式显示模板选项和保存 Mermaid 图片选项
         output_format = self.get_selected_format()
-        if output_format == "DOCX":
+        if output_format in ("DOCX", "PPTX"):
+            self.template_label.grid()
             self.template_frame.grid()
+            self.save_mermaid_label.grid()
             self.save_mermaid_frame.grid()
         else:
+            self.template_label.grid_remove()
             self.template_frame.grid_remove()
             self.use_template.set(False)
             self.template_path.set("")
+            self.save_mermaid_label.grid_remove()
             self.save_mermaid_frame.grid_remove()
             self.save_mermaid_images.set(False)
 
@@ -487,12 +493,24 @@ class MarkdownExporterGUI:
 
     def select_template(self):
         """选择模板文件"""
-        filetypes = [
-            ("Word 模板文件", "*.docx"),
-            ("所有文件", "*.*"),
-        ]
+        output_format = self.get_selected_format()
+        if output_format == "DOCX":
+            filetypes = [
+                ("Word 模板文件", "*.docx"),
+                ("所有文件", "*.*"),
+            ]
+            title = "选择 DOCX 模板文件"
+        elif output_format == "PPTX":
+            filetypes = [
+                ("PowerPoint 模板文件", "*.pptx"),
+                ("所有文件", "*.*"),
+            ]
+            title = "选择 PPTX 模板文件"
+        else:
+            return
+        
         template = filedialog.askopenfilename(
-            title="选择 DOCX 模板文件",
+            title=title,
             filetypes=filetypes
         )
         if template:
@@ -718,7 +736,7 @@ class MarkdownExporterGUI:
                     "DOCX": lambda: self._convert_to_docx(md_text, output_file),
                     "PDF": lambda: svc_md_to_pdf.convert_md_to_pdf(md_text, output_file),
                     "HTML": lambda: svc_md_to_html.convert_md_to_html(md_text, output_file),
-                    "PPTX": lambda: svc_md_to_pptx.convert_md_to_pptx(md_text, output_file),
+                    "PPTX": lambda: self._convert_to_pptx(md_text, output_file),
                     "XLSX": lambda: svc_md_to_xlsx.convert_md_to_xlsx(md_text, output_file),
                     "CSV": lambda: svc_md_to_csv.convert_md_to_csv(md_text, output_file),
                     "JSON": lambda: svc_md_to_json.convert_md_to_json(md_text, output_file),
@@ -837,6 +855,48 @@ class MarkdownExporterGUI:
         else:
             # 未勾选使用自定义模板，使用默认模板
             svc_md_to_docx.convert_md_to_docx(
+                md_text=md_text,
+                output_path=output_file,
+                save_mermaid_images=self.save_mermaid_images.get(),
+                output_dir=output_file.parent
+            )
+
+    def _convert_to_pptx(self, md_text, output_file):
+        """转换 Markdown 到 PPTX，支持自定义模板和 Mermaid 图片保存"""
+        from md_exporter.services import svc_md_to_pptx
+        
+        # 如果启用自定义模板且已选择模板文件，则使用用户模板
+        if self.use_template.get() and self.template_path.get():
+            template = Path(self.template_path.get())
+            if template.exists():
+                self.log_message(f"  使用自定义模板: {template.name}")
+                svc_md_to_pptx.convert_md_to_pptx(
+                    md_text=md_text,
+                    output_path=output_file,
+                    template_path=template,
+                    save_mermaid_images=self.save_mermaid_images.get(),
+                    output_dir=output_file.parent
+                )
+            else:
+                self.log_message(f"  ⚠ 模板文件不存在，使用默认模板")
+                svc_md_to_pptx.convert_md_to_pptx(
+                    md_text=md_text,
+                    output_path=output_file,
+                    save_mermaid_images=self.save_mermaid_images.get(),
+                    output_dir=output_file.parent
+                )
+        elif self.use_template.get() and not self.template_path.get():
+            # 勾选了使用自定义模板，但未选择模板文件，使用默认模板
+            self.log_message(f"  未选择模板文件，使用默认模板")
+            svc_md_to_pptx.convert_md_to_pptx(
+                md_text=md_text,
+                output_path=output_file,
+                save_mermaid_images=self.save_mermaid_images.get(),
+                output_dir=output_file.parent
+            )
+        else:
+            # 未勾选使用自定义模板，使用默认模板
+            svc_md_to_pptx.convert_md_to_pptx(
                 md_text=md_text,
                 output_path=output_file,
                 save_mermaid_images=self.save_mermaid_images.get(),
