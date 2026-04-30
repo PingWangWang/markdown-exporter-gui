@@ -157,6 +157,7 @@ cmd = [
     '--hidden-import', 'md_exporter.utils.file_utils',
     '--hidden-import', 'md_exporter.utils.pandoc_utils',
     '--hidden-import', 'md_exporter.utils.table_utils',
+    '--hidden-import', 'md_exporter.utils.mermaid_utils',
     # 隐藏导入 - DOCX 操作相关
     '--hidden-import', 'docx',
     '--hidden-import', 'docx.shared',
@@ -170,6 +171,7 @@ cmd = [
     '--hidden-import', 'pypandoc',
     '--hidden-import', 'jinja2',
     '--hidden-import', 'tkinterdnd2',
+    '--hidden-import', 'requests',
     '--exclude-module', 'tkinter.test',
     # 添加数据文件
     # 添加 md_exporter 的资源文件

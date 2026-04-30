@@ -19,6 +19,9 @@ pypandoc-binary~=1.16.2
 # DOCX 操作（设置字体颜色为黑色）
 python-docx~=1.1.0
 
+# Mermaid 图表转换（使用 mermaid.ink 在线服务）
+requests~=2.32.0
+
 # 拖拽支持
 tkinterdnd2~=0.4.2
 

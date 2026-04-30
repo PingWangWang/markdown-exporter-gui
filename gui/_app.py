@@ -59,7 +59,7 @@ class MarkdownExporterGUI:
         self.is_processing = False
         self.last_output_file = None  # 最后一次转换的输出路径（用于"打开文件夹并选中"）
         self.last_single_output = None  # 单文件转换时的输出路径（用于"打开文档"按钮）
-        self.debug_logging = tk.BooleanVar(value=False)  # 调试日志开关，默认关闭
+        self.debug_logging = tk.BooleanVar(value=True)  # 调试日志开关，默认开启
         self.use_template = tk.BooleanVar(value=False)  # 是否使用自定义模板
         self.template_path = tk.StringVar()  # 模板文件路径
 
@@ -298,27 +298,34 @@ class MarkdownExporterGUI:
         row += 1
 
         # 模板选项（仅DOCX格式显示）
-        self.template_frame = ttk.Frame(mf)
-        self.template_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=4)
+        ttk.Label(mf, text="使用自定义模板:", style="Field.TLabel").grid(
+            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
+        )
+        tf = ttk.Frame(mf)
+        tf.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
+        tf.columnconfigure(1, weight=1)
         
+        # 勾选框
         self.use_template_check = ttk.Checkbutton(
-            self.template_frame,
-            text="使用自定义模板",
+            tf,
+            text="",
             variable=self.use_template,
             command=self.on_template_toggle
         )
         self.use_template_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
         
+        # 文本框
         template_entry = ttk.Entry(
-            self.template_frame,
+            tf,
             textvariable=self.template_path,
             state="readonly",
             width=40
         )
         template_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 6))
         
+        # 按钮
         self.select_template_btn = ttk.Button(
-            self.template_frame,
+            tf,
             text="选择模板",
             command=self.select_template,
             style="Select.TButton",
@@ -326,7 +333,8 @@ class MarkdownExporterGUI:
             state="disabled"
         )
         self.select_template_btn.grid(row=0, column=2)
-        self.template_frame.columnconfigure(1, weight=1)
+        
+        self.template_frame = tf
         
         row += 1
 
@@ -781,8 +789,12 @@ class MarkdownExporterGUI:
                     template_path=template
                 )
             else:
-                self.log_message(f"   模板文件不存在，使用默认模板")
+                self.log_message(f"  ⚠ 模板文件不存在，使用默认模板")
                 svc_md_to_docx.convert_md_to_docx(md_text, output_file)
+        elif self.use_template.get() and not self.template_path.get():
+            # 勾选了使用自定义模板，但未选择模板文件，使用默认模板
+            self.log_message(f"  未选择模板文件，使用默认模板")
+            svc_md_to_docx.convert_md_to_docx(md_text, output_file)
         else:
-            # 使用默认模板（不调用自定义格式化）
+            # 未勾选使用自定义模板，使用默认模板
             svc_md_to_docx.convert_md_to_docx(md_text, output_file)
