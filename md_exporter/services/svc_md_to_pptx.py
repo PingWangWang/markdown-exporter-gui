@@ -84,7 +84,7 @@ def convert_md_to_pptx(
             image_save_path = save_path if save_mermaid_images else temp_path
             
             # 替换 Mermaid 代码块为图片引用（使用 PNG 格式，通过 scale 参数提高清晰度）
-            modified_md, generated_images = replace_mermaid_with_images(
+            modified_md, generated_images, mermaid_stats = replace_mermaid_with_images(
                 processed_md,
                 image_save_path,
                 image_format="png",
@@ -93,6 +93,16 @@ def convert_md_to_pptx(
                 retry_delay=2,
                 scale=3  # 3倍缩放提高清晰度
             )
+            
+            # 输出 Mermaid 转换汇总信息
+            if mermaid_stats['total'] > 0:
+                logger.info("="*50)
+                logger.info(f"Mermaid 转换汇总:")
+                logger.info(f"  总计: {mermaid_stats['total']} 个")
+                logger.info(f"  成功: {mermaid_stats['success']} 个")
+                if mermaid_stats['failed'] > 0:
+                    logger.info(f"  失败: {mermaid_stats['failed']} 个")
+                logger.info("="*50)
             
             # 使用修改后的 Markdown（包含图片引用）进行转换
             final_template_path = template_path

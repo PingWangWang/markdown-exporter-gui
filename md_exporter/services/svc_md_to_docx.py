@@ -193,12 +193,13 @@ STYLE_CONFIGS: list[dict] = [
         "font_size": Pt(10.5),  # 五号字
         "bold": False,
         "italic": True,  # 斜体
-        "color": RGBColor(0, 102, 0),  # 更明显的绿色
+        "color": RGBColor(0, 153, 0),  # 更明显的绿色
         "first_line_indent": Pt(0),
         "left_indent": Pt(24),  # 左缩进2字符（所有行都缩进）
         "line_spacing": 1.0,
         "space_before": Pt(0),
         "space_after": Pt(0),
+        "background_color": RGBColor(0, 0, 0),  # 黑色背景
         "is_code": True,
     },
 ]
@@ -470,6 +471,18 @@ def _step2_create_styles(doc) -> None:
                 pf.left_indent = config["left_indent"]
             pf.space_before = config["space_before"]
             pf.space_after = config["space_after"]
+            
+            # Apply background color for code blocks
+            if config.get("background_color"):
+                pPr = style.element.get_or_add_pPr()
+                shd = pPr.find(qn("w:shd"))
+                if shd is None:
+                    shd_xml = '<w:shd {} w:val="clear"/>'.format(nsdecls("w"))
+                    shd = parse_xml(shd_xml)
+                    pPr.append(shd)
+                bg_color = config["background_color"]
+                hex_color = f"{bg_color[0]:02X}{bg_color[1]:02X}{bg_color[2]:02X}"
+                shd.set(qn("w:fill"), hex_color)
         except Exception as exc:
             logger.warning(f"Failed to create/update style '{name}': {exc}")
 
@@ -482,10 +495,12 @@ def _step3_apply_to_content(doc) -> None:
     
     code_block_count = 0
     
-    # Get page width for image scaling (default A4: 595 points)
+    # Get page dimensions for image scaling (default A4: 595 x 842 points)
     section = doc.sections[0] if doc.sections else None
     page_width = section.page_width.pt if section else 595
+    page_height = section.page_height.pt if section else 842
     max_image_width = page_width - 72  # Leave 36pt margin on each side
+    max_image_height = page_height - 144  # Leave 72pt margin top and bottom
     
     for para in doc.paragraphs:
         try:
@@ -499,18 +514,34 @@ def _step3_apply_to_content(doc) -> None:
             elif _has_image(para):
                 para.style = image_para_style
                 _apply_para_formatting(para, _IMAGE_CONFIG)
+                logger.info(f"Found image paragraph, checking scaling...")
                 
-                # Scale inline images if they are too wide
+                # Scale inline images if they are too wide or too tall
                 # Access shapes through paragraph._element
-                for child in para._element.iter():
-                    if child.tag.endswith("inline"):
-                        try:
-                            # Find extent element which defines the size
-                            extent = child.find(qn("wp:extent"))
-                            if extent is not None:
-                                # Get current width in EMUs (English Metric Units)
-                                cx_val = extent.get(qn("cx"))
-                                cy_val = extent.get(qn("cy"))
+                # Images in docx can be structured as:
+                # - drawing -> inline -> extent (inline images)
+                # - drawing -> anchor -> extent (anchored/floating images)
+                
+                try:
+                    # Use a state machine to track context while iterating
+                    in_drawing = False
+                    in_inline_or_anchor = False
+                    current_context_tag = None
+                    
+                    for elem in para._element.iter():
+                        tag_name = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                        
+                        if tag_name == "drawing":
+                            in_drawing = True
+                        elif in_drawing and tag_name in ["inline", "anchor"]:
+                            in_inline_or_anchor = True
+                            current_context_tag = tag_name
+                        elif in_inline_or_anchor and tag_name == "extent":
+                            # Found the extent element, process it
+                            try:
+                                # Try both with and without namespace
+                                cx_val = elem.get(qn("wp:cx")) or elem.get("cx")
+                                cy_val = elem.get(qn("wp:cy")) or elem.get("cy")
                                 
                                 if cx_val and cy_val:
                                     current_width_emu = int(cx_val)
@@ -518,19 +549,49 @@ def _step3_apply_to_content(doc) -> None:
                                     
                                     # Convert EMU to points (1 pt = 12700 EMU)
                                     current_width_pt = current_width_emu / 12700.0
+                                    current_height_pt = current_height_emu / 12700.0
+                                    
+                                    logger.info(f"Image ({current_context_tag}) size: {current_width_pt:.0f}x{current_height_pt:.0f}pt, max: {max_image_width:.0f}x{max_image_height:.0f}pt")
+                                    
+                                    # Check if image exceeds width or height limits
+                                    needs_scaling = False
+                                    scale_factor = 1.0
                                     
                                     if current_width_pt > max_image_width:
-                                        # Calculate scale factor
-                                        scale_factor = max_image_width / current_width_pt
-                                        new_width_emu = int(max_image_width * 12700)
+                                        # Scale based on width
+                                        scale_factor = min(scale_factor, max_image_width / current_width_pt)
+                                        needs_scaling = True
+                                    
+                                    if current_height_pt > max_image_height:
+                                        # Scale based on height
+                                        scale_factor = min(scale_factor, max_image_height / current_height_pt)
+                                        needs_scaling = True
+                                    
+                                    if needs_scaling and scale_factor < 1.0:
+                                        new_width_emu = int(current_width_emu * scale_factor)
                                         new_height_emu = int(current_height_emu * scale_factor)
                                         
-                                        # Update the extent
-                                        extent.set(qn("cx"), str(new_width_emu))
-                                        extent.set(qn("cy"), str(new_height_emu))
-                                        logger.debug(f"Scaled image from {current_width_pt:.0f}pt to {max_image_width:.0f}pt")
-                        except Exception as img_exc:
-                            logger.debug(f"Failed to scale image: {img_exc}")
+                                        # Update the extent (try both with and without namespace)
+                                        if elem.get(qn("wp:cx")) is not None:
+                                            elem.set(qn("wp:cx"), str(new_width_emu))
+                                            elem.set(qn("wp:cy"), str(new_height_emu))
+                                        else:
+                                            elem.set("cx", str(new_width_emu))
+                                            elem.set("cy", str(new_height_emu))
+                                        logger.info(f"✓ Scaled image from {current_width_pt:.0f}x{current_height_pt:.0f}pt to {new_width_emu/12700.0:.0f}x{new_height_emu/12700.0:.0f}pt")
+                                    else:
+                                        logger.info(f"Image within limits, no scaling needed")
+                                else:
+                                    logger.warning(f"DEBUG: cx_val or cy_val is None/empty")
+                            except Exception as img_exc:
+                                import traceback
+                                logger.warning(f"Failed to scale image: {img_exc}")
+                                logger.warning(f"Traceback: {traceback.format_exc()}")
+                except Exception as e:
+                    import traceback
+                    logger.error(f"Error iterating paragraph elements: {e}")
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+
             # 检查是否为列表项，如果是则应用自定义列表样式
             elif _has_num_pr(para):
                 para.style = custom_list_style
@@ -679,7 +740,7 @@ def convert_md_to_docx(
             image_save_path = save_path if save_mermaid_images else temp_path
             
             # 替换 Mermaid 代码块为图片引用（使用 PNG 格式，通过 scale 参数提高清晰度）
-            modified_md, generated_images = replace_mermaid_with_images(
+            modified_md, generated_images, mermaid_stats = replace_mermaid_with_images(
                 processed_md,
                 image_save_path,
                 image_format="png",
@@ -688,6 +749,16 @@ def convert_md_to_docx(
                 retry_delay=2,
                 scale=3  # 3倍缩放提高清晰度
             )
+            
+            # 输出 Mermaid 转换汇总信息
+            if mermaid_stats['total'] > 0:
+                logger.info("="*50)
+                logger.info(f"Mermaid 转换汇总:")
+                logger.info(f"  总计: {mermaid_stats['total']} 个")
+                logger.info(f"  成功: {mermaid_stats['success']} 个")
+                if mermaid_stats['failed'] > 0:
+                    logger.info(f"  失败: {mermaid_stats['failed']} 个")
+                logger.info("="*50)
             
             # 使用修改后的 Markdown（包含图片引用）进行转换
             final_template_path = template_path or get_default_template()

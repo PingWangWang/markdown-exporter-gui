@@ -149,7 +149,7 @@ def replace_mermaid_with_images(
     retry_delay: int = RETRY_DELAY,
     scale: int = 3,  # 缩放比例（仅 PNG 需要，SVG 不需要）
     theme: str = "default",  # 主题风格
-) -> tuple[str, list[Path]]:
+) -> tuple[str, list[Path], dict]:
     """
     将 Markdown 中的 Mermaid 代码块替换为图片引用
     
@@ -164,13 +164,14 @@ def replace_mermaid_with_images(
         theme: 主题风格 (default, dark, forest, neutral)
         
     Returns:
-        (修改后的 Markdown 文本, 生成的图片路径列表)
+        (修改后的 Markdown 文本, 生成的图片路径列表, 统计信息字典)
+        统计信息字典包含: {'total': 总数, 'success': 成功数, 'failed': 失败数}
     """
     mermaid_blocks = extract_mermaid_blocks(md_text)
     
     if not mermaid_blocks:
         logger.info("未发现 Mermaid 代码块，跳过转换")
-        return md_text, []
+        return md_text, [], {'total': 0, 'success': 0, 'failed': 0}
     
     # 确保临时目录存在
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -178,6 +179,8 @@ def replace_mermaid_with_images(
     modified_text = md_text
     generated_images = []
     offset = 0  # 用于跟踪文本偏移量
+    success_count = 0
+    failed_count = 0
     
     for idx, (code, start, end) in enumerate(mermaid_blocks, 1):
         logger.info(f"处理第 {idx}/{len(mermaid_blocks)} 个 Mermaid 图表...")
@@ -200,24 +203,32 @@ def replace_mermaid_with_images(
         
         if result_path and result_path.exists():
             generated_images.append(result_path)
-            
+            success_count += 1
+                    
             # 构建图片引用（Markdown 格式）- 使用空替代文本避免显示额外文字
             img_ref = f"![]({img_filename})"
-            
+                    
             # 替换原文本中的代码块
             adjusted_start = start + offset
             adjusted_end = end + offset
             modified_text = modified_text[:adjusted_start] + img_ref + modified_text[adjusted_end:]
-            
+                    
             # 更新偏移量
             offset += len(img_ref) - (adjusted_end - adjusted_start)
-            
+                    
             logger.info(f"✓ 已替换第 {idx} 个 Mermaid 图表为图片")
         else:
-            logger.warning(f"⚠ 第 {idx} 个 Mermaid 图表转换失败，保留原始代码")
+            failed_count += 1
+            logger.error(f"✗ 第 {idx} 个 Mermaid 图表转换失败，保留原始代码")
     
-    logger.info(f"完成：共转换 {len(generated_images)}/{len(mermaid_blocks)} 个 Mermaid 图表")
-    return modified_text, generated_images
+    stats = {
+        'total': len(mermaid_blocks),
+        'success': success_count,
+        'failed': failed_count
+    }
+    
+    logger.info(f"完成：共转换 {success_count}/{len(mermaid_blocks)} 个 Mermaid 图表")
+    return modified_text, generated_images, stats
 
 
 def cleanup_temp_images(image_paths: list[Path]) -> None:

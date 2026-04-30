@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
@@ -63,7 +64,7 @@ class MarkdownExporterGUI:
         self.use_template = tk.BooleanVar(value=False)  # 是否使用自定义模板
         self.template_path = tk.StringVar()  # 模板文件路径
         self.save_mermaid_images = tk.BooleanVar(value=False)  # 是否保存 Mermaid 图片
-        self.convert_mermaid_images = tk.BooleanVar(value=True)  # 是否转换 Mermaid 图片，默认开启
+        self.convert_mermaid_images = tk.BooleanVar(value=False)  # 是否转换 Mermaid 图片，默认关闭
 
         # 设置GUI日志回调，使服务模块的日志能在GUI中显示
         self._setup_gui_logging()
@@ -171,6 +172,13 @@ class MarkdownExporterGUI:
             foreground=self.C_LINK,
             cursor="hand2",
             font=("Microsoft YaHei UI", 9, "underline"),
+        )
+        s.configure(
+            "Hint.TLabel",
+            background=self.C_BG,
+            foreground="#6B7280",
+            cursor="hand2",
+            font=("Microsoft YaHei UI", 9),
         )
         s.configure(
             "TEntry",
@@ -357,6 +365,15 @@ class MarkdownExporterGUI:
         )
         self.convert_mermaid_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
         
+        # 添加说明文字和可点击链接
+        hint_label = ttk.Label(
+            mf3,
+            text="该功能需联网访问 https://mermaid.ink",
+            style="Link.TLabel",
+        )
+        hint_label.grid(row=0, column=1, sticky=tk.W, padx=(0, 4))
+        hint_label.bind("<Button-1>", lambda e: self._open_url("https://mermaid.ink"))
+        
         self.convert_mermaid_frame = mf3
         
         row += 1
@@ -442,6 +459,7 @@ class MarkdownExporterGUI:
             ("info", "#5DADE2"),
             ("arrow", "#F0B429"),
             ("complete", "#A9CCE3"),
+            ("summary", "#F39C12"),  # 橙黄色用于汇总信息
             ("normal", self.C_LOG_FG),
         ]:
             self.log_text.tag_configure(tag, foreground=color)
@@ -563,6 +581,10 @@ class MarkdownExporterGUI:
             tag = "success"
         elif s.startswith(("✗", "❌")):
             tag = "error"
+        elif s.startswith("="):
+            tag = "summary"  # 汇总信息分隔线
+        elif s.startswith(("Mermaid 转换汇总:", "  总计:", "  成功:", "  失败:")):
+            tag = "summary"  # 汇总信息内容
         elif s.startswith("[") and "]" in s:
             tag = "info"
         elif s.startswith(("→", "  →")):
@@ -940,3 +962,10 @@ class MarkdownExporterGUI:
                 save_mermaid_images=self.save_mermaid_images.get(),
                 output_dir=output_file.parent
             )
+
+    def _open_url(self, url):
+        """在默认浏览器中打开URL"""
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            self.log_message(f"  ⚠ 无法打开链接: {e}")
