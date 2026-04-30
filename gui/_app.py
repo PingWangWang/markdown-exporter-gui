@@ -62,6 +62,7 @@ class MarkdownExporterGUI:
         self.debug_logging = tk.BooleanVar(value=True)  # 调试日志开关，默认开启
         self.use_template = tk.BooleanVar(value=False)  # 是否使用自定义模板
         self.template_path = tk.StringVar()  # 模板文件路径
+        self.save_mermaid_images = tk.BooleanVar(value=False)  # 是否保存 Mermaid 图片
 
         # 设置GUI日志回调，使服务模块的日志能在GUI中显示
         self._setup_gui_logging()
@@ -337,6 +338,25 @@ class MarkdownExporterGUI:
         self.template_frame = tf
         
         row += 1
+        
+        # 保存 Mermaid 图片选项（仅DOCX格式显示）
+        ttk.Label(mf, text="保存 Mermaid 图片:", style="Field.TLabel").grid(
+            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
+        )
+        mf2 = ttk.Frame(mf)
+        mf2.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
+        
+        self.save_mermaid_check = ttk.Checkbutton(
+            mf2,
+            text="",
+            variable=self.save_mermaid_images,
+            command=self.on_save_mermaid_toggle
+        )
+        self.save_mermaid_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+        
+        self.save_mermaid_frame = mf2
+        
+        row += 1
 
         # 分割线
         ttk.Separator(mf, orient="horizontal").grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=6)
@@ -441,14 +461,17 @@ class MarkdownExporterGUI:
 
     def on_format_change(self, event=None):
         """当输出格式改变时的回调"""
-        # 仅DOCX格式显示模板选项
+        # 仅DOCX格式显示模板选项和保存 Mermaid 图片选项
         output_format = self.get_selected_format()
         if output_format == "DOCX":
             self.template_frame.grid()
+            self.save_mermaid_frame.grid()
         else:
             self.template_frame.grid_remove()
             self.use_template.set(False)
             self.template_path.set("")
+            self.save_mermaid_frame.grid_remove()
+            self.save_mermaid_images.set(False)
 
     def on_template_toggle(self):
         """模板开关变化时的回调"""
@@ -457,6 +480,10 @@ class MarkdownExporterGUI:
         else:
             self.select_template_btn.configure(state="disabled")
             self.template_path.set("")
+    
+    def on_save_mermaid_toggle(self):
+        """保存 Mermaid 图片开关变化时的回调"""
+        pass  # 目前不需要额外处理
 
     def select_template(self):
         """选择模板文件"""
@@ -775,7 +802,7 @@ class MarkdownExporterGUI:
         show_about(self)
 
     def _convert_to_docx(self, md_text, output_file):
-        """转换 Markdown 到 DOCX，支持自定义模板"""
+        """转换 Markdown 到 DOCX，支持自定义模板和 Mermaid 图片保存"""
         from md_exporter.services import svc_md_to_docx
         
         # 如果启用自定义模板且已选择模板文件，则使用用户模板
@@ -784,17 +811,34 @@ class MarkdownExporterGUI:
             if template.exists():
                 self.log_message(f"  使用自定义模板: {template.name}")
                 svc_md_to_docx.convert_md_to_docx(
-                    md_text,
-                    output_file,
-                    template_path=template
+                    md_text=md_text,
+                    output_path=output_file,
+                    template_path=template,
+                    save_mermaid_images=self.save_mermaid_images.get(),
+                    output_dir=output_file.parent
                 )
             else:
                 self.log_message(f"  ⚠ 模板文件不存在，使用默认模板")
-                svc_md_to_docx.convert_md_to_docx(md_text, output_file)
+                svc_md_to_docx.convert_md_to_docx(
+                    md_text=md_text,
+                    output_path=output_file,
+                    save_mermaid_images=self.save_mermaid_images.get(),
+                    output_dir=output_file.parent
+                )
         elif self.use_template.get() and not self.template_path.get():
             # 勾选了使用自定义模板，但未选择模板文件，使用默认模板
             self.log_message(f"  未选择模板文件，使用默认模板")
-            svc_md_to_docx.convert_md_to_docx(md_text, output_file)
+            svc_md_to_docx.convert_md_to_docx(
+                md_text=md_text,
+                output_path=output_file,
+                save_mermaid_images=self.save_mermaid_images.get(),
+                output_dir=output_file.parent
+            )
         else:
             # 未勾选使用自定义模板，使用默认模板
-            svc_md_to_docx.convert_md_to_docx(md_text, output_file)
+            svc_md_to_docx.convert_md_to_docx(
+                md_text=md_text,
+                output_path=output_file,
+                save_mermaid_images=self.save_mermaid_images.get(),
+                output_dir=output_file.parent
+            )

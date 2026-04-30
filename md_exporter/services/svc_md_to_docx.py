@@ -377,6 +377,25 @@ def _step3_apply_to_content(doc) -> None:
         tblW = parse_xml(f'<w:tblW {nsdecls("w")} w:type="pct" w:w="5000"/>')
         tblPr.append(tblW)
 
+        # 设置表格框线为实线（单线）
+        # 构建 tblBorders 元素：所有边框使用 single 样式
+        tblBorders_xml = f'''<w:tblBorders {nsdecls("w")}>
+            <w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+            <w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+            <w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+            <w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+        </w:tblBorders>'''
+        tblBorders = parse_xml(tblBorders_xml)
+        
+        # 移除现有的 tblBorders
+        existing_tblBorders = tblPr.find(qn("w:tblBorders"))
+        if existing_tblBorders is not None:
+            tblPr.remove(existing_tblBorders)
+        
+        tblPr.append(tblBorders)
+
         for row in tbl.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
@@ -413,6 +432,8 @@ def convert_md_to_docx(
     template_path: Path | None = None,
     is_strip_wrapper: bool = False,
     is_enable_toc: bool = False,
+    save_mermaid_images: bool = False,
+    output_dir: Path | None = None,
 ) -> None:
     """
     Convert Markdown text to DOCX format.
@@ -423,6 +444,8 @@ def convert_md_to_docx(
         template_path: Optional path to DOCX template file
         is_strip_wrapper: Whether to remove code block wrapper if present
         is_enable_toc: Whether to include table of contents in the output
+        save_mermaid_images: Whether to save Mermaid images to output directory
+        output_dir: Output directory for saving Mermaid images (required if save_mermaid_images is True)
 
     Raises:
         ValueError: If input processing fails
@@ -436,18 +459,33 @@ def convert_md_to_docx(
     if mermaid_blocks:
         logger.info(f"检测到 {len(mermaid_blocks)} 个 Mermaid 图表，开始转换...")
         
+        # 根据是否保存图片决定使用临时目录还是输出目录
+        if save_mermaid_images and output_dir:
+            # 创建图片保存目录
+            images_dir = output_dir / "mermaid_images"
+            images_dir.mkdir(exist_ok=True)
+            save_path = images_dir
+            logger.info(f"Mermaid 图片将保存到: {images_dir}")
+        else:
+            # 使用临时目录，转换后删除
+            save_path = None
+        
         # 创建临时目录存放图片和 Markdown 文件
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # 替换 Mermaid 代码块为图片引用（图片会保存在 temp_path）
+            # 如果不需要保存图片，图片保存在临时目录
+            image_save_path = save_path if save_mermaid_images else temp_path
+            
+            # 替换 Mermaid 代码块为图片引用（使用 PNG 格式，通过 scale 参数提高清晰度）
             modified_md, generated_images = replace_mermaid_with_images(
                 processed_md,
-                temp_path,
+                image_save_path,
                 image_format="png",
-                timeout=10,
+                timeout=15,  # 增加超时时间，因为大图片需要更长时间
                 max_retries=3,
-                retry_delay=2
+                retry_delay=2,
+                scale=3  # 3倍缩放提高清晰度
             )
             
             # 使用修改后的 Markdown（包含图片引用）进行转换
@@ -464,7 +502,11 @@ def convert_md_to_docx(
             temp_md_file.write_text(modified_md, encoding="utf-8")
             
             # 添加资源路径，让 Pandoc 能找到图片
-            extra_args.append(f"--resource-path={temp_path}")
+            # 如果图片保存在输出目录，需要添加输出目录到资源路径
+            resource_paths = [str(temp_path)]
+            if save_mermaid_images and save_path:
+                resource_paths.append(str(save_path))
+            extra_args.append(f"--resource-path={';'.join(resource_paths)}")
             
             try:
                 pandoc_convert_file(
@@ -480,9 +522,12 @@ def convert_md_to_docx(
                 else:
                     logger.info(f"Using custom template, skipping formatting: {template_path}")
             finally:
-                # 清理临时图片
-                cleanup_temp_images(generated_images)
-                logger.info("已清理临时图片文件")
+                # 如果不保存图片，清理临时图片
+                if not save_mermaid_images:
+                    cleanup_temp_images(generated_images)
+                    logger.info("已清理临时图片文件")
+                else:
+                    logger.info(f"已保存 {len(generated_images)} 个 Mermaid 图片到: {save_path}")
     else:
         # 没有 Mermaid 图表，使用原有逻辑
         logger.info("未检测到 Mermaid 图表，使用标准转换流程")

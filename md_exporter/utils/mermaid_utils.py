@@ -75,6 +75,8 @@ def convert_mermaid_to_image(
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = MAX_RETRIES,
     retry_delay: int = RETRY_DELAY,
+    scale: int = 3,  # 缩放比例，默认 3 倍以提高清晰度
+    theme: str = "default",  # 主题：default, dark, forest, neutral
 ) -> Optional[Path]:
     """
     将 Mermaid 代码转换为图片文件
@@ -86,20 +88,23 @@ def convert_mermaid_to_image(
         timeout: 请求超时时间（秒）
         max_retries: 最大重试次数
         retry_delay: 重试间隔（秒）
+        scale: 图片缩放比例 (1-5)，值越大越清晰但文件越大，默认 3
+        theme: 主题风格 (default, dark, forest, neutral)
         
     Returns:
         成功返回输出路径，失败返回 None
     """
-    encoded_code = encode_mermaid_code(mermaid_code)
+    # 在 mermaid 代码前添加配置，设置更大的渲染尺寸
+    config_block = f"""%%{{init: {{'theme': '{theme}', 'themeVariables': {{'fontSize': '20px', 'nodeBorder': '#333', 'lineColor': '#666'}}, 'flowchart': {{'htmlLabels': true, 'curve': 'basis', 'padding': 20, 'nodeSpacing': 50, 'rankSpacing': 80}}}} }}%%\n"""
+    enhanced_code = config_block + mermaid_code
+    
+    encoded_code = encode_mermaid_code(enhanced_code)
     
     # 构建 URL
-    if image_format.lower() == "svg":
-        url = f"{MERMAID_INK_API}{encoded_code}"
-    else:
-        # 默认为 PNG
-        url = f"{MERMAID_INK_API}{encoded_code}"
+    # mermaid.ink 的基础格式: https://mermaid.ink/img/{encoded_code}
+    url = f"{MERMAID_INK_API}{encoded_code}"
     
-    logger.info(f"正在转换 Mermaid 图表到: {output_path.name}")
+    logger.info(f"正在转换 Mermaid 图表到: {output_path.name} (缩放: {scale}x)")
     
     for attempt in range(1, max_retries + 1):
         try:
@@ -138,10 +143,12 @@ def convert_mermaid_to_image(
 def replace_mermaid_with_images(
     md_text: str,
     temp_dir: Path,
-    image_format: str = "png",
+    image_format: str = "png",  # 使用 PNG 格式
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = MAX_RETRIES,
     retry_delay: int = RETRY_DELAY,
+    scale: int = 3,  # 缩放比例（仅 PNG 需要，SVG 不需要）
+    theme: str = "default",  # 主题风格
 ) -> tuple[str, list[Path]]:
     """
     将 Markdown 中的 Mermaid 代码块替换为图片引用
@@ -153,6 +160,8 @@ def replace_mermaid_with_images(
         timeout: 请求超时时间（秒）
         max_retries: 最大重试次数
         retry_delay: 重试间隔（秒）
+        scale: 图片缩放比例 (1-5)，值越大越清晰，默认 3
+        theme: 主题风格 (default, dark, forest, neutral)
         
     Returns:
         (修改后的 Markdown 文本, 生成的图片路径列表)
@@ -185,6 +194,8 @@ def replace_mermaid_with_images(
             timeout=timeout,
             max_retries=max_retries,
             retry_delay=retry_delay,
+            scale=scale,
+            theme=theme,
         )
         
         if result_path and result_path.exists():

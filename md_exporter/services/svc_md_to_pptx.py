@@ -60,14 +60,15 @@ def convert_md_to_pptx(
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # 替换 Mermaid 代码块为图片引用（图片会保存在 temp_path）
+            # 替换 Mermaid 代码块为图片引用（使用 PNG 格式，通过 scale 参数提高清晰度）
             modified_md, generated_images = replace_mermaid_with_images(
                 processed_md,
                 temp_path,
                 image_format="png",
-                timeout=10,
+                timeout=15,  # 增加超时时间，因为大图片需要更长时间
                 max_retries=3,
-                retry_delay=2
+                retry_delay=2,
+                scale=3  # 3倍缩放提高清晰度
             )
             
             # 使用修改后的 Markdown（包含图片引用）进行转换
