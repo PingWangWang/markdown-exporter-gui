@@ -185,6 +185,22 @@ STYLE_CONFIGS: list[dict] = [
         "alignment": 1,
         "is_image": True,
     },
+    {
+        "name": "Code Block",
+        "style_keywords": [],
+        "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
+        "font_size": Pt(10.5),  # 五号字
+        "bold": False,
+        "italic": True,  # 斜体
+        "color": RGBColor(0, 102, 0),  # 更明显的绿色
+        "first_line_indent": Pt(0),
+        "left_indent": Pt(24),  # 左缩进2字符（所有行都缩进）
+        "line_spacing": 1.0,
+        "space_before": Pt(0),
+        "space_after": Pt(0),
+        "is_code": True,
+    },
 ]
 
 REQUIRED_PARAGRAPH_STYLES: set[str] = {
@@ -199,6 +215,9 @@ REQUIRED_PARAGRAPH_STYLES: set[str] = {
     "List Paragraph",
     "Image Paragraph",
     "Custom List",
+    "Code Block",
+    "Source Code",  # Pandoc generated code block style
+    "Preformatted Text",  # Pandoc generated code block style
 }
 
 REQUIRED_CHARACTER_STYLES: set[str] = {
@@ -212,6 +231,7 @@ _NORMAL_CONFIG: dict = next(c for c in STYLE_CONFIGS if c["name"] == "Normal")
 _TABLE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_table"))
 _IMAGE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_image"))
 _CUSTOM_LIST_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_custom_list"))
+_CODE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_code"))
 
 
 # ---------------------------------------------------------------------------
@@ -270,11 +290,44 @@ def _has_image(paragraph) -> bool:
     return False
 
 
+def _is_code_block(paragraph) -> bool:
+    """Return True if the paragraph is a code block."""
+    # Check if paragraph style contains code-related keywords (pandoc generated)
+    style_name = paragraph.style.name if paragraph.style else ""
+    code_style_keywords = [
+        "Preformatted", "Code", "Source Code", "NormalTok", "Verbatim",
+        "KeywordTok", "StringTok", "CommentTok", "FunctionTok", "VariableTok",
+        "DataTypeTok", "DecValTok", "BaseNTok", "FloatTok", "ConstantTok",
+        "CharTok", "SpecialCharTok", "ImportTok", "DocumentationTok",
+        "AnnotationTok", "OtherTok", "ControlFlowTok", "OperatorTok",
+        "BuiltInTok", "ExtensionTok", "PreprocessorTok", "AttributeTok",
+        "RegionMarkerTok", "InformationTok", "WarningTok", "AlertTok", "ErrorTok"
+    ]
+    for keyword in code_style_keywords:
+        if keyword in style_name:
+            logger.debug(f"Detected code block by style name: {style_name}")
+            return True
+    
+    # Check if paragraph has monospace font (typical for code blocks)
+    for run in paragraph.runs:
+        font_name = run.font.name
+        if font_name and ("Consolas" in font_name or "Courier" in font_name or "Monospace" in font_name):
+            logger.debug(f"Detected code block by font: {font_name}")
+            return True
+    
+    return False
+
+
 def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> None:
     pf = paragraph.paragraph_format
     pf.line_spacing = config["line_spacing"]
     pf.space_before = config["space_before"]
     pf.space_after = config["space_after"]
+    
+    # For code blocks, keep lines together and prevent page breaks
+    if config.get("is_code"):
+        pf.keep_together = True
+        pf.keep_with_next = True
     
     # Custom list style: set explicit indent to override pandoc defaults
     if config.get("is_custom_list"):
@@ -308,11 +361,23 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
             run.font.bold = True
         elif run.font.bold is not True:
             run.font.bold = config["bold"]
-        _set_rfonts(
-            run._element.get_or_add_rPr(),
-            config["font_name"],
-            config.get("font_name_latin"),
-        )
+        
+        # Apply italic if configured
+        if config.get("italic"):
+            run.font.italic = True
+        
+        # For code blocks, always use Latin font (Times New Roman)
+        if config.get("is_code"):
+            _set_rfonts(
+                run._element.get_or_add_rPr(),
+                config.get("font_name_latin", config["font_name"]),
+            )
+        else:
+            _set_rfonts(
+                run._element.get_or_add_rPr(),
+                config["font_name"],
+                config.get("font_name_latin"),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -413,13 +478,59 @@ def _step3_apply_to_content(doc) -> None:
     table_text_style = doc.styles["Table Text"]
     image_para_style = doc.styles["Image Paragraph"]
     custom_list_style = doc.styles["Custom List"]
+    code_block_style = doc.styles["Code Block"]
+    
+    code_block_count = 0
+    
+    # Get page width for image scaling (default A4: 595 points)
+    section = doc.sections[0] if doc.sections else None
+    page_width = section.page_width.pt if section else 595
+    max_image_width = page_width - 72  # Leave 36pt margin on each side
     
     for para in doc.paragraphs:
         try:
-            # 检查是否为图片段落，如果是则应用图片样式
-            if _has_image(para):
+            # 检查是否为代码块，如果是则应用代码块样式
+            if _is_code_block(para):
+                para.style = code_block_style
+                _apply_para_formatting(para, _CODE_CONFIG)
+                code_block_count += 1
+                logger.debug(f"Applied Code Block style to paragraph: {para.text[:50]}")
+            # 检查是否为图片段落，如果是则应用图片样式并缩放图片
+            elif _has_image(para):
                 para.style = image_para_style
                 _apply_para_formatting(para, _IMAGE_CONFIG)
+                
+                # Scale inline images if they are too wide
+                # Access shapes through paragraph._element
+                for child in para._element.iter():
+                    if child.tag.endswith("inline"):
+                        try:
+                            # Find extent element which defines the size
+                            extent = child.find(qn("wp:extent"))
+                            if extent is not None:
+                                # Get current width in EMUs (English Metric Units)
+                                cx_val = extent.get(qn("cx"))
+                                cy_val = extent.get(qn("cy"))
+                                
+                                if cx_val and cy_val:
+                                    current_width_emu = int(cx_val)
+                                    current_height_emu = int(cy_val)
+                                    
+                                    # Convert EMU to points (1 pt = 12700 EMU)
+                                    current_width_pt = current_width_emu / 12700.0
+                                    
+                                    if current_width_pt > max_image_width:
+                                        # Calculate scale factor
+                                        scale_factor = max_image_width / current_width_pt
+                                        new_width_emu = int(max_image_width * 12700)
+                                        new_height_emu = int(current_height_emu * scale_factor)
+                                        
+                                        # Update the extent
+                                        extent.set(qn("cx"), str(new_width_emu))
+                                        extent.set(qn("cy"), str(new_height_emu))
+                                        logger.debug(f"Scaled image from {current_width_pt:.0f}pt to {max_image_width:.0f}pt")
+                        except Exception as img_exc:
+                            logger.debug(f"Failed to scale image: {img_exc}")
             # 检查是否为列表项，如果是则应用自定义列表样式
             elif _has_num_pr(para):
                 para.style = custom_list_style
@@ -429,6 +540,8 @@ def _step3_apply_to_content(doc) -> None:
                 _apply_para_formatting(para, _get_config_for_style(style_name))
         except Exception as exc:
             logger.warning(f"Failed to format paragraph: {exc}")
+    
+    logger.info(f"Total code blocks formatted: {code_block_count}")
 
     table_text_style = doc.styles["Table Text"]
     for tbl in doc.tables:
@@ -518,6 +631,7 @@ def convert_md_to_docx(
     template_path: Path | None = None,
     is_strip_wrapper: bool = False,
     is_enable_toc: bool = False,
+    convert_mermaid: bool = True,
     save_mermaid_images: bool = False,
     output_dir: Path | None = None,
 ) -> None:
@@ -530,6 +644,7 @@ def convert_md_to_docx(
         template_path: Optional path to DOCX template file
         is_strip_wrapper: Whether to remove code block wrapper if present
         is_enable_toc: Whether to include table of contents in the output
+        convert_mermaid: Whether to convert Mermaid code blocks to images
         save_mermaid_images: Whether to save Mermaid images to output directory
         output_dir: Output directory for saving Mermaid images (required if save_mermaid_images is True)
 
@@ -542,7 +657,7 @@ def convert_md_to_docx(
     # 检查是否有 Mermaid 代码块需要转换
     mermaid_blocks = extract_mermaid_blocks(processed_md)
     
-    if mermaid_blocks:
+    if mermaid_blocks and convert_mermaid:
         logger.info(f"检测到 {len(mermaid_blocks)} 个 Mermaid 图表，开始转换...")
         
         # 根据是否保存图片决定使用临时目录还是输出目录

@@ -63,6 +63,7 @@ class MarkdownExporterGUI:
         self.use_template = tk.BooleanVar(value=False)  # 是否使用自定义模板
         self.template_path = tk.StringVar()  # 模板文件路径
         self.save_mermaid_images = tk.BooleanVar(value=False)  # 是否保存 Mermaid 图片
+        self.convert_mermaid_images = tk.BooleanVar(value=True)  # 是否转换 Mermaid 图片，默认开启
 
         # 设置GUI日志回调，使服务模块的日志能在GUI中显示
         self._setup_gui_logging()
@@ -340,6 +341,26 @@ class MarkdownExporterGUI:
         
         row += 1
         
+        # 转换 Mermaid 图片选项（仅DOCX和PPTX格式显示）
+        self.convert_mermaid_label = ttk.Label(mf, text="转换 Mermaid 图片:", style="Field.TLabel")
+        self.convert_mermaid_label.grid(
+            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
+        )
+        mf3 = ttk.Frame(mf)
+        mf3.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
+        
+        self.convert_mermaid_check = ttk.Checkbutton(
+            mf3,
+            text="",
+            variable=self.convert_mermaid_images,
+            command=self.on_convert_mermaid_toggle
+        )
+        self.convert_mermaid_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+        
+        self.convert_mermaid_frame = mf3
+        
+        row += 1
+        
         # 保存 Mermaid 图片选项（仅DOCX和PPTX格式显示）
         self.save_mermaid_label = ttk.Label(mf, text="保存 Mermaid 图片:", style="Field.TLabel")
         self.save_mermaid_label.grid(
@@ -470,6 +491,8 @@ class MarkdownExporterGUI:
             self.template_frame.grid()
             self.save_mermaid_label.grid()
             self.save_mermaid_frame.grid()
+            self.convert_mermaid_label.grid()
+            self.convert_mermaid_frame.grid()
         else:
             self.template_label.grid_remove()
             self.template_frame.grid_remove()
@@ -478,6 +501,9 @@ class MarkdownExporterGUI:
             self.save_mermaid_label.grid_remove()
             self.save_mermaid_frame.grid_remove()
             self.save_mermaid_images.set(False)
+            self.convert_mermaid_label.grid_remove()
+            self.convert_mermaid_frame.grid_remove()
+            self.convert_mermaid_images.set(True)
 
     def on_template_toggle(self):
         """模板开关变化时的回调"""
@@ -489,6 +515,10 @@ class MarkdownExporterGUI:
     
     def on_save_mermaid_toggle(self):
         """保存 Mermaid 图片开关变化时的回调"""
+        pass  # 目前不需要额外处理
+    
+    def on_convert_mermaid_toggle(self):
+        """转换 Mermaid 图片开关变化时的回调"""
         pass  # 目前不需要额外处理
 
     def select_template(self):
@@ -832,6 +862,7 @@ class MarkdownExporterGUI:
                     md_text=md_text,
                     output_path=output_file,
                     template_path=template,
+                    convert_mermaid=self.convert_mermaid_images.get(),
                     save_mermaid_images=self.save_mermaid_images.get(),
                     output_dir=output_file.parent
                 )
@@ -840,6 +871,7 @@ class MarkdownExporterGUI:
                 svc_md_to_docx.convert_md_to_docx(
                     md_text=md_text,
                     output_path=output_file,
+                    convert_mermaid=self.convert_mermaid_images.get(),
                     save_mermaid_images=self.save_mermaid_images.get(),
                     output_dir=output_file.parent
                 )
@@ -849,6 +881,7 @@ class MarkdownExporterGUI:
             svc_md_to_docx.convert_md_to_docx(
                 md_text=md_text,
                 output_path=output_file,
+                convert_mermaid=self.convert_mermaid_images.get(),
                 save_mermaid_images=self.save_mermaid_images.get(),
                 output_dir=output_file.parent
             )
@@ -857,6 +890,7 @@ class MarkdownExporterGUI:
             svc_md_to_docx.convert_md_to_docx(
                 md_text=md_text,
                 output_path=output_file,
+                convert_mermaid=self.convert_mermaid_images.get(),
                 save_mermaid_images=self.save_mermaid_images.get(),
                 output_dir=output_file.parent
             )
@@ -874,6 +908,7 @@ class MarkdownExporterGUI:
                     md_text=md_text,
                     output_path=output_file,
                     template_path=template,
+                    convert_mermaid=self.convert_mermaid_images.get(),
                     save_mermaid_images=self.save_mermaid_images.get(),
                     output_dir=output_file.parent
                 )
@@ -882,6 +917,7 @@ class MarkdownExporterGUI:
                 svc_md_to_pptx.convert_md_to_pptx(
                     md_text=md_text,
                     output_path=output_file,
+                    convert_mermaid=self.convert_mermaid_images.get(),
                     save_mermaid_images=self.save_mermaid_images.get(),
                     output_dir=output_file.parent
                 )
@@ -891,6 +927,7 @@ class MarkdownExporterGUI:
             svc_md_to_pptx.convert_md_to_pptx(
                 md_text=md_text,
                 output_path=output_file,
+                convert_mermaid=self.convert_mermaid_images.get(),
                 save_mermaid_images=self.save_mermaid_images.get(),
                 output_dir=output_file.parent
             )
@@ -899,6 +936,7 @@ class MarkdownExporterGUI:
             svc_md_to_pptx.convert_md_to_pptx(
                 md_text=md_text,
                 output_path=output_file,
+                convert_mermaid=self.convert_mermaid_images.get(),
                 save_mermaid_images=self.save_mermaid_images.get(),
                 output_dir=output_file.parent
             )

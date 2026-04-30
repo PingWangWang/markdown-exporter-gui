@@ -36,6 +36,7 @@ def convert_md_to_pptx(
     output_path: Path,
     template_path: Path | None = None,
     is_strip_wrapper: bool = False,
+    convert_mermaid: bool = True,
     save_mermaid_images: bool = False,
     output_dir: Path | None = None,
 ) -> Path:
@@ -46,6 +47,7 @@ def convert_md_to_pptx(
         output_path: Path to save the output PPTX file
         template_path: Path to PPTX template file (optional)
         is_strip_wrapper: Whether to remove code block wrapper if present
+        convert_mermaid: Whether to convert Mermaid code blocks to images
         save_mermaid_images: Whether to save Mermaid images to output directory
         output_dir: Output directory for saving Mermaid images (required if save_mermaid_images is True)
     Returns:
@@ -60,7 +62,7 @@ def convert_md_to_pptx(
     # 检查是否有 Mermaid 代码块需要转换
     mermaid_blocks = extract_mermaid_blocks(processed_md)
     
-    if mermaid_blocks:
+    if mermaid_blocks and convert_mermaid:
         logger.info(f"检测到 {len(mermaid_blocks)} 个 Mermaid 图表，开始转换...")
         
         # 根据是否保存图片决定使用临时目录还是输出目录
