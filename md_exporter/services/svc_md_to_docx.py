@@ -154,6 +154,22 @@ STYLE_CONFIGS: list[dict] = [
         "alignment": 1,
         "is_table": True,
     },
+    {
+        "name": "Image Paragraph",
+        "style_keywords": [],
+        "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
+        "font_size": Pt(12),
+        "bold": False,
+        "color": RGBColor(0, 0, 0),
+        "first_line_indent": Pt(0),
+        "left_indent": Pt(0),
+        "line_spacing": 1.3,
+        "space_before": Pt(0),
+        "space_after": Pt(0),
+        "alignment": 1,
+        "is_image": True,
+    },
 ]
 
 REQUIRED_PARAGRAPH_STYLES: set[str] = {
@@ -166,6 +182,7 @@ REQUIRED_PARAGRAPH_STYLES: set[str] = {
     "Heading 6",
     "Table Text",
     "List Paragraph",
+    "Image Paragraph",
 }
 
 REQUIRED_CHARACTER_STYLES: set[str] = {
@@ -177,6 +194,7 @@ REQUIRED_CHARACTER_STYLES: set[str] = {
 
 _NORMAL_CONFIG: dict = next(c for c in STYLE_CONFIGS if c["name"] == "Normal")
 _TABLE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_table"))
+_IMAGE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_image"))
 
 
 # ---------------------------------------------------------------------------
@@ -240,21 +258,20 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
     pf.line_spacing = config["line_spacing"]
     pf.space_before = config["space_before"]
     pf.space_after = config["space_after"]
+    
     # List items (w:numPr) manage their own indentation via numbering definition;
     # overriding first_line_indent / left_indent would break bullet alignment.
     if not _has_num_pr(paragraph):
-        # Image paragraphs should not have first-line indent and should be centered
-        if _has_image(paragraph):
-            pf.first_line_indent = Pt(0)
-            pf.left_indent = Pt(0)
-            pf.alignment = 1  # Center alignment
-        elif config["first_line_indent"] and not is_table and _needs_no_indent(paragraph):
+        if config["first_line_indent"] and not is_table and _needs_no_indent(paragraph):
             pf.first_line_indent = Pt(0)
         else:
             pf.first_line_indent = config["first_line_indent"]
             pf.left_indent = config["left_indent"]
     if is_table and "alignment" in config:
         pf.alignment = config["alignment"]
+    # Image paragraph alignment is handled by style, but ensure it's set
+    if config.get("is_image"):
+        pf.alignment = 1  # Center alignment
 
     for run in paragraph.runs:
         run.font.color.rgb = config["color"]
@@ -368,10 +385,18 @@ def _step2_create_styles(doc) -> None:
 
 
 def _step3_apply_to_content(doc) -> None:
+    table_text_style = doc.styles["Table Text"]
+    image_para_style = doc.styles["Image Paragraph"]
+    
     for para in doc.paragraphs:
         try:
-            style_name = para.style.name if para.style else "Normal"
-            _apply_para_formatting(para, _get_config_for_style(style_name))
+            # 检查是否为图片段落，如果是则应用图片样式
+            if _has_image(para):
+                para.style = image_para_style
+                _apply_para_formatting(para, _IMAGE_CONFIG)
+            else:
+                style_name = para.style.name if para.style else "Normal"
+                _apply_para_formatting(para, _get_config_for_style(style_name))
         except Exception as exc:
             logger.warning(f"Failed to format paragraph: {exc}")
 
@@ -414,6 +439,21 @@ def _step3_apply_to_content(doc) -> None:
 
         for row in tbl.rows:
             for cell in row.cells:
+                # 设置单元格垂直居中对齐
+                tc = cell._element
+                tcPr = tc.tcPr if tc.tcPr is not None else parse_xml(f'<w:tcPr {nsdecls("w")}/>')
+                if tc.tcPr is None:
+                    tc.insert(0, tcPr)
+                
+                # 移除现有的 vAlign 元素
+                existing_vAlign = tcPr.find(qn("w:vAlign"))
+                if existing_vAlign is not None:
+                    tcPr.remove(existing_vAlign)
+                
+                # 设置垂直居中 (center)
+                vAlign = parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>')
+                tcPr.append(vAlign)
+                
                 for para in cell.paragraphs:
                     try:
                         para.style = table_text_style
