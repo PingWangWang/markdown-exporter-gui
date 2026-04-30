@@ -139,6 +139,21 @@ STYLE_CONFIGS: list[dict] = [
         "is_list": True,
     },
     {
+        "name": "Custom List",
+        "style_keywords": [],
+        "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
+        "font_size": Pt(12),
+        "bold": False,
+        "color": RGBColor(0, 0, 0),
+        "first_line_indent": Pt(24),
+        "left_indent": Pt(0),
+        "line_spacing": 1.3,
+        "space_before": Pt(0),
+        "space_after": Pt(0),
+        "is_custom_list": True,
+    },
+    {
         "name": "Table Text",
         "style_keywords": [],
         "font_name": "宋体",
@@ -183,6 +198,7 @@ REQUIRED_PARAGRAPH_STYLES: set[str] = {
     "Table Text",
     "List Paragraph",
     "Image Paragraph",
+    "Custom List",
 }
 
 REQUIRED_CHARACTER_STYLES: set[str] = {
@@ -195,6 +211,7 @@ REQUIRED_CHARACTER_STYLES: set[str] = {
 _NORMAL_CONFIG: dict = next(c for c in STYLE_CONFIGS if c["name"] == "Normal")
 _TABLE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_table"))
 _IMAGE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_image"))
+_CUSTOM_LIST_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_custom_list"))
 
 
 # ---------------------------------------------------------------------------
@@ -259,9 +276,17 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
     pf.space_before = config["space_before"]
     pf.space_after = config["space_after"]
     
+    # Custom list style: set explicit indent to override pandoc defaults
+    if config.get("is_custom_list"):
+        pf.left_indent = config["left_indent"]
+        pf.first_line_indent = config["first_line_indent"]
     # List items (w:numPr) manage their own indentation via numbering definition;
-    # overriding first_line_indent / left_indent would break bullet alignment.
-    if not _has_num_pr(paragraph):
+    # but we need to override left_indent to control the overall indent level.
+    elif config.get("is_list"):
+        # For list items, only set left_indent, let numbering handle the rest
+        pf.left_indent = config["left_indent"]
+        pf.first_line_indent = Pt(0)
+    elif not _has_num_pr(paragraph):
         if config["first_line_indent"] and not is_table and _needs_no_indent(paragraph):
             pf.first_line_indent = Pt(0)
         else:
@@ -387,6 +412,7 @@ def _step2_create_styles(doc) -> None:
 def _step3_apply_to_content(doc) -> None:
     table_text_style = doc.styles["Table Text"]
     image_para_style = doc.styles["Image Paragraph"]
+    custom_list_style = doc.styles["Custom List"]
     
     for para in doc.paragraphs:
         try:
@@ -394,6 +420,10 @@ def _step3_apply_to_content(doc) -> None:
             if _has_image(para):
                 para.style = image_para_style
                 _apply_para_formatting(para, _IMAGE_CONFIG)
+            # 检查是否为列表项，如果是则应用自定义列表样式
+            elif _has_num_pr(para):
+                para.style = custom_list_style
+                _apply_para_formatting(para, _CUSTOM_LIST_CONFIG)
             else:
                 style_name = para.style.name if para.style else "Normal"
                 _apply_para_formatting(para, _get_config_for_style(style_name))
