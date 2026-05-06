@@ -220,6 +220,51 @@ STYLE_CONFIGS: list[dict] = [
         "background_color": RGBColor(0, 0, 0),  # 黑色背景
         "is_code": True,
     },
+    {
+        "name": "Table of Contents 1",
+        "style_keywords": ["Table of Contents 1", "TOC 1"],
+        "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
+        "font_size": Pt(12),  # 小四号
+        "bold": False,
+        "color": RGBColor(0, 0, 0),
+        "first_line_indent": Pt(0),  # 无缩进
+        "left_indent": Pt(0),
+        "line_spacing": 1.0,  # 单倍行距
+        "space_before": Pt(0),
+        "space_after": Pt(0),
+        "is_toc": True,
+    },
+    {
+        "name": "Table of Contents 2",
+        "style_keywords": ["Table of Contents 2", "TOC 2"],
+        "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
+        "font_size": Pt(12),  # 小四号
+        "bold": False,
+        "color": RGBColor(0, 0, 0),
+        "first_line_indent": Pt(24),  # 首行缩进2字符
+        "left_indent": Pt(0),
+        "line_spacing": 1.0,  # 单倍行距
+        "space_before": Pt(0),
+        "space_after": Pt(0),
+        "is_toc": True,
+    },
+    {
+        "name": "Table of Contents 3",
+        "style_keywords": ["Table of Contents 3", "TOC 3"],
+        "font_name": "宋体",
+        "font_name_latin": "Times New Roman",
+        "font_size": Pt(12),  # 小四号
+        "bold": False,
+        "color": RGBColor(0, 0, 0),
+        "first_line_indent": Pt(48),  # 首行缩进4字符
+        "left_indent": Pt(0),
+        "line_spacing": 1.0,  # 单倍行距
+        "space_before": Pt(0),
+        "space_after": Pt(0),
+        "is_toc": True,
+    },
 ]
 
 REQUIRED_PARAGRAPH_STYLES: set[str] = {
@@ -237,6 +282,9 @@ REQUIRED_PARAGRAPH_STYLES: set[str] = {
     "Code Block",
     "Source Code",  # Pandoc generated code block style
     "Preformatted Text",  # Pandoc generated code block style
+    "Table of Contents 1",
+    "Table of Contents 2",
+    "Table of Contents 3",
 }
 
 REQUIRED_CHARACTER_STYLES: set[str] = {
@@ -252,6 +300,9 @@ _TABLE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_table"))
 _IMAGE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_image"))
 _CUSTOM_LIST_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_custom_list"))
 _CODE_CONFIG: dict = next(c for c in STYLE_CONFIGS if c.get("is_code"))
+_TOC1_CONFIG: dict = next(c for c in STYLE_CONFIGS if c["name"] == "Table of Contents 1")
+_TOC2_CONFIG: dict = next(c for c in STYLE_CONFIGS if c["name"] == "Table of Contents 2")
+_TOC3_CONFIG: dict = next(c for c in STYLE_CONFIGS if c["name"] == "Table of Contents 3")
 
 # Pandoc/语法高亮可能产生的代码样式关键字
 CODE_STYLE_KEYWORDS: tuple[str, ...] = (
@@ -364,6 +415,22 @@ def _has_image(paragraph) -> bool:
         if child.tag.endswith("drawing") or child.tag.endswith("pic"):
             return True
     return False
+
+
+def _is_toc_paragraph(paragraph) -> tuple[bool, int]:
+    """判断段落是否为目录项，并返回目录级别（1/2/3）。
+    
+    返回：
+        (是否为目录, 目录级别)
+        如果不是目录，返回 (False, 0)
+    """
+    style_name = paragraph.style.name if paragraph.style else ""
+    for level in [1, 2, 3]:
+        toc_style_name = f"Table of Contents {level}"
+        toc_short_name = f"TOC {level}"
+        if toc_style_name in style_name or toc_short_name in style_name:
+            return True, level
+    return False, 0
 
 
 def _is_code_block(paragraph) -> bool:
@@ -750,8 +817,12 @@ def _step3_apply_to_content(doc) -> None:
     image_para_style = doc.styles["Image Paragraph"]
     custom_list_style = doc.styles["Custom List"]
     code_block_style = doc.styles["Code Block"]
+    toc1_style = doc.styles["Table of Contents 1"]
+    toc2_style = doc.styles["Table of Contents 2"]
+    toc3_style = doc.styles["Table of Contents 3"]
 
     code_block_count = 0
+    toc_count = {1: 0, 2: 0, 3: 0}
     max_image_width, max_image_height = _get_image_limits(doc)
 
     for para in doc.paragraphs:
@@ -769,12 +840,22 @@ def _step3_apply_to_content(doc) -> None:
                 para.style = custom_list_style
                 _apply_para_formatting(para, _CUSTOM_LIST_CONFIG)
             else:
-                style_name = para.style.name if para.style else "Normal"
-                _apply_para_formatting(para, _get_config_for_style(style_name))
+                # 检查是否为目录项
+                is_toc, toc_level = _is_toc_paragraph(para)
+                if is_toc:
+                    toc_style_map = {1: toc1_style, 2: toc2_style, 3: toc3_style}
+                    toc_config_map = {1: _TOC1_CONFIG, 2: _TOC2_CONFIG, 3: _TOC3_CONFIG}
+                    para.style = toc_style_map[toc_level]
+                    _apply_para_formatting(para, toc_config_map[toc_level])
+                    toc_count[toc_level] += 1
+                else:
+                    style_name = para.style.name if para.style else "Normal"
+                    _apply_para_formatting(para, _get_config_for_style(style_name))
         except Exception as exc:
             logger.warning(f"Failed to format paragraph: {exc}")
 
     logger.info(f"Total code blocks formatted: {code_block_count}")
+    logger.info(f"Total TOC items formatted: Level 1: {toc_count[1]}, Level 2: {toc_count[2]}, Level 3: {toc_count[3]}")
     _format_table_content(doc)
 
 
