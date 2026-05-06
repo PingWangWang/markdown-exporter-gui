@@ -899,7 +899,7 @@ def convert_md_to_docx(
             image_save_path = save_path if save_mermaid_images else temp_path
 
             # 替换 Mermaid 代码块为图片引用（使用 PNG 格式，通过 scale 参数提高清晰度）
-            modified_md, generated_images, mermaid_stats = replace_mermaid_with_images(
+            modified_md, generated_images, mermaid_stats, failed_mermaid_codes = replace_mermaid_with_images(
                 processed_md,
                 image_save_path,
                 image_format="png",
@@ -908,16 +908,22 @@ def convert_md_to_docx(
                 retry_delay=2,
                 scale=3  # 3倍缩放提高清晰度
             )
-
-            # 输出 Mermaid 转换统计，便于排查失败图表
-            if mermaid_stats["total"] > 0:
-                logger.info("=" * 50)
-                logger.info(f"Mermaid 转换汇总:")
-                logger.info(f"  总计: {mermaid_stats['total']} 个")
-                logger.info(f"  成功: {mermaid_stats['success']} 个")
-                if mermaid_stats["failed"] > 0:
-                    logger.info(f"  失败: {mermaid_stats['failed']} 个")
-                logger.info("=" * 50)
+            
+            # 如果有失败的 Mermaid 代码，保存到临时文件
+            if failed_mermaid_codes:
+                failed_codes_file = output_path.parent / f"{output_path.stem}_failed_mermaid_codes.md"
+                with open(failed_codes_file, 'w', encoding='utf-8') as f:
+                    f.write(f"# 转换失败的 Mermaid 代码\n\n")
+                    f.write(f"共计 {len(failed_mermaid_codes)} 个 Mermaid 图表转换失败\n\n")
+                    f.write("=" * 60 + "\n\n")
+                                
+                    for item in failed_mermaid_codes:
+                        f.write(f"## Mermaid 图表 #{item['index']}\n\n")
+                        f.write(f"**预期文件名**: {item['filename']}\n\n")
+                        f.write(f"**代码**:\n\n```mermaid\n{item['code']}\n```\n\n")
+                        f.write("-" * 60 + "\n\n")
+                            
+                logger.info(f"已将 {len(failed_mermaid_codes)} 个失败的 Mermaid 代码保存到: {failed_codes_file.name}")
 
             # 将替换后的 Markdown（Mermaid -> ![](...)）写到临时文件
             temp_md_file = temp_path / "temp.md"
@@ -943,6 +949,16 @@ def convert_md_to_docx(
                     logger.info("已清理临时图片文件")
                 else:
                     logger.info(f"已保存 {len(generated_images)} 个 Mermaid 图片到: {save_path}")
+        
+        # 在文档转换完成后输出 Mermaid 汇总
+        if mermaid_stats and mermaid_stats["total"] > 0:
+            logger.info("=" * 50)
+            logger.info("Mermaid 转换汇总:")
+            logger.info(f"  总计: {mermaid_stats['total']} 个")
+            logger.info(f"  成功: {mermaid_stats['success']} 个")
+            if mermaid_stats["failed"] > 0:
+                logger.info(f"  失败: {mermaid_stats['failed']} 个")
+            logger.info("=" * 50)
     else:
         # 无 Mermaid：走标准 Markdown -> DOCX 流程
         logger.info("未检测到 Mermaid 图表，使用标准转换流程")

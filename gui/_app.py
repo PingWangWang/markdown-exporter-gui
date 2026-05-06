@@ -151,8 +151,8 @@ class MarkdownExporterGUI:
         self.C_BTN_RUN_A = "#1E8449"
         self.C_BTN_OPEN = "#E67E22"
         self.C_BTN_OPEN_A = "#CA6F1E"
-        self.C_LOG_BG = "#1E2533"
-        self.C_LOG_FG = "#D4E6F1"
+        self.C_LOG_BG = "#FFFFFF"  # 白色背景
+        self.C_LOG_FG = "#000000"  # 黑色字体
         self.C_LINK = "#2E86C1"
         self.C_BORDER = "#D1D9E6"
 
@@ -445,7 +445,7 @@ class MarkdownExporterGUI:
             bg=self.C_LOG_BG,
             fg=self.C_LOG_FG,
             insertbackground=self.C_LOG_FG,
-            selectbackground="#2E86C1",
+            selectbackground="#4A90D9",
             selectforeground="#FFFFFF",
             relief="flat",
             borderwidth=0,
@@ -454,13 +454,15 @@ class MarkdownExporterGUI:
         self.log_text.grid(row=row+1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(2, 2))
         mf.rowconfigure(row+1, weight=1)
         for tag, color in [
-            ("success", "#2ECC71"),
-            ("error", "#E74C3C"),
-            ("info", "#5DADE2"),
-            ("arrow", "#F0B429"),
-            ("complete", "#A9CCE3"),
-            ("summary", "#F39C12"),  # 橙黄色用于汇总信息
-            ("normal", self.C_LOG_FG),
+            ("success", "#00AA00"),  # 绿色
+            ("error", "#CC0000"),     # 红色
+            ("warning", "#CC9900"),   # 黄色/橙色
+            ("info", "#0066CC"),      # 蓝色
+            ("arrow", "#666666"),     # 灰色
+            ("complete", "#0066CC"),  # 蓝色
+            ("summary", "#CC6600"),   # 橙色
+            ("service", "#666666"),   # 灰色（服务日志）
+            ("normal", self.C_LOG_FG), # 黑色
         ]:
             self.log_text.tag_configure(tag, foreground=color)
         row += 2
@@ -577,22 +579,27 @@ class MarkdownExporterGUI:
     def log_message(self, message):
         self.log_text.configure(state="normal")
         s = message.strip()
-        if s.startswith(("✓", "✅")):
+        
+        # 根据消息内容判断日志类型
+        if s.startswith(("✓", "✅", "✔")):
             tag = "success"
-        elif s.startswith(("✗", "❌")):
+        elif s.startswith(("❌", "×")):
             tag = "error"
-        elif s.startswith("="):
-            tag = "summary"  # 汇总信息分隔线
-        elif s.startswith(("Mermaid 转换汇总:", "  总计:", "  成功:", "  失败:")):
-            tag = "summary"  # 汇总信息内容
-        elif s.startswith("[") and "]" in s:
+        elif s.startswith(("⚠", "Warning", "warning")):
+            tag = "warning"
+        elif s.startswith(("[服务]",)):
+            tag = "service"  # 服务模块的日志
+        elif s.startswith(("[",)) and "]" in s:
             tag = "info"
         elif s.startswith(("→", "  →")):
             tag = "arrow"
         elif s.startswith(("处理完成", "开始处理")):
             tag = "complete"
+        elif s.startswith("=") or s.startswith(("Mermaid 转换汇总:", "  总计:", "  成功:", "  失败:")):
+            tag = "summary"
         else:
             tag = "normal"
+        
         self.log_text.insert(tk.END, message + "\n", tag)
         self.log_text.see(tk.END)
         self.log_text.configure(state="disabled")

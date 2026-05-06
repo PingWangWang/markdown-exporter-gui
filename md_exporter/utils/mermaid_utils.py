@@ -149,7 +149,7 @@ def replace_mermaid_with_images(
     retry_delay: int = RETRY_DELAY,
     scale: int = 3,  # 缩放比例（仅 PNG 需要，SVG 不需要）
     theme: str = "default",  # 主题风格
-) -> tuple[str, list[Path], dict]:
+) -> tuple[str, list[Path], dict, list[dict]]:
     """
     将 Markdown 中的 Mermaid 代码块替换为图片引用
     
@@ -164,14 +164,15 @@ def replace_mermaid_with_images(
         theme: 主题风格 (default, dark, forest, neutral)
         
     Returns:
-        (修改后的 Markdown 文本, 生成的图片路径列表, 统计信息字典)
+        (修改后的 Markdown 文本, 生成的图片路径列表, 统计信息字典, 失败的代码列表)
         统计信息字典包含: {'total': 总数, 'success': 成功数, 'failed': 失败数}
+        失败的代码列表包含: [{'index': 序号, 'code': 代码, 'filename': 文件名}, ...]
     """
     mermaid_blocks = extract_mermaid_blocks(md_text)
     
     if not mermaid_blocks:
         logger.info("未发现 Mermaid 代码块，跳过转换")
-        return md_text, [], {'total': 0, 'success': 0, 'failed': 0}
+        return md_text, [], {'total': 0, 'success': 0, 'failed': 0}, []
     
     # 确保临时目录存在
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -181,12 +182,35 @@ def replace_mermaid_with_images(
     offset = 0  # 用于跟踪文本偏移量
     success_count = 0
     failed_count = 0
+    failed_codes = []  # 保存转换失败的 Mermaid 代码
     
     for idx, (code, start, end) in enumerate(mermaid_blocks, 1):
         logger.info(f"处理第 {idx}/{len(mermaid_blocks)} 个 Mermaid 图表...")
         
-        # 生成图片文件名
-        img_filename = f"mermaid_{idx}.{image_format}"
+        # 生成图片文件名，包含图表类型信息
+        # 尝试从代码中提取图表类型（graph, flowchart, sequenceDiagram 等）
+        chart_type = "diagram"  # 默认类型
+        first_line = code.strip().split('\n')[0].strip().lower()
+        if 'graph' in first_line or 'flowchart' in first_line:
+            chart_type = "flowchart"
+        elif 'sequencediagram' in first_line:
+            chart_type = "sequence"
+        elif 'classdiagram' in first_line:
+            chart_type = "class"
+        elif 'statediagram' in first_line:
+            chart_type = "state"
+        elif 'erdiagram' in first_line:
+            chart_type = "er"
+        elif 'gantt' in first_line:
+            chart_type = "gantt"
+        elif 'pie' in first_line:
+            chart_type = "pie"
+        elif 'gitgraph' in first_line:
+            chart_type = "git"
+        elif 'mindmap' in first_line:
+            chart_type = "mindmap"
+        
+        img_filename = f"mermaid_{idx}_{chart_type}.{image_format}"
         img_path = temp_dir / img_filename
         
         # 转换 Mermaid 为图片
@@ -219,6 +243,12 @@ def replace_mermaid_with_images(
             logger.info(f"✓ 已替换第 {idx} 个 Mermaid 图表为图片")
         else:
             failed_count += 1
+            # 保存失败的代码
+            failed_codes.append({
+                'index': idx,
+                'code': code,
+                'filename': img_filename
+            })
             logger.error(f"✗ 第 {idx} 个 Mermaid 图表转换失败，保留原始代码")
     
     stats = {
@@ -228,7 +258,7 @@ def replace_mermaid_with_images(
     }
     
     logger.info(f"完成：共转换 {success_count}/{len(mermaid_blocks)} 个 Mermaid 图表")
-    return modified_text, generated_images, stats
+    return modified_text, generated_images, stats, failed_codes
 
 
 def cleanup_temp_images(image_paths: list[Path]) -> None:
