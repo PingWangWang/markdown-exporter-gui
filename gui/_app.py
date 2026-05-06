@@ -273,6 +273,9 @@ class MarkdownExporterGUI:
         ttk.Button(btn_col, text="添加文件", command=self.select_files, style="Select.TButton", width=10).pack(
             pady=(0, 4)
         )
+        ttk.Button(btn_col, text="删除选中", command=self.remove_selected_files, style="Select.TButton", width=10).pack(
+            pady=(0, 4)
+        )
         ttk.Button(btn_col, text="清空列表", command=self.clear_files, style="Select.TButton", width=10).pack()
         # Delete 键删除选中项
         self.file_listbox.bind("<Delete>", lambda e: self.remove_selected_files())
@@ -629,6 +632,7 @@ class MarkdownExporterGUI:
     def clear_files(self):
         self.input_files = []
         self.file_listbox.delete(0, tk.END)
+        self.output_dir.set("")
 
     def remove_selected_files(self):
         selected = list(self.file_listbox.curselection())
