@@ -166,6 +166,7 @@ cmd = [
     '--hidden-import', 'markdown',
     '--hidden-import', 'pandas',
     '--hidden-import', 'xhtml2pdf',
+    '--collect-all', 'reportlab',  # 收集 reportlab 所有子模块（包括条形码等）
     '--hidden-import', 'PIL',
     '--hidden-import', 'PIL.Image',
     '--hidden-import', 'pypandoc',

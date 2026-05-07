@@ -371,20 +371,67 @@ def _get_config_for_style(style_name: str) -> dict:
     return _NORMAL_CONFIG
 
 
-def _set_rfonts(rpr_elem, font_name: str, font_name_latin: str | None = None) -> None:
+def _is_emoji(char: str) -> bool:
+    """判断字符是否为 emoji。
+    
+    检测范围包括：
+    - Emoji 基本区（U+1F600-U+1F64F）
+    - Emoji 补充区（U+1F900-U+1F9FF）
+    - Emoji 符号和标点（U+2600-U+26FF, U+2700-U+27BF）
+    - Emoji 组件（U+200D 零宽连接符等）
+    """
+    code = ord(char)
+    return (
+        0x1F600 <= code <= 0x1F64F or  # Emoticons
+        0x1F900 <= code <= 0x1F9FF or  # Supplemental Symbols and Pictographs
+        0x1F300 <= code <= 0x1F5FF or  # Miscellaneous Symbols and Pictographs
+        0x1F680 <= code <= 0x1F6FF or  # Transport and Map Symbols
+        0x2600 <= code <= 0x26FF or    # Miscellaneous Symbols
+        0x2700 <= code <= 0x27BF or    # Dingbats
+        0xFE00 <= code <= 0xFE0F or    # Variation Selectors
+        0x1FA00 <= code <= 0x1FA6F or  # Chess Symbols
+        0x1FA70 <= code <= 0x1FAFF or  # Symbols and Pictographs Extended-A
+        code == 0x200D or              # Zero Width Joiner
+        code == 0x20E3 or              # Combining Enclosing Keycap
+        0x1F1E0 <= code <= 0x1F1FF     # Regional Indicator Symbols (flags)
+    )
+
+
+def _contains_emoji(text: str) -> bool:
+    """判断文本中是否包含 emoji 字符。"""
+    return any(_is_emoji(char) for char in text)
+
+
+def _set_rfonts(rpr_elem, font_name: str, font_name_latin: str | None = None, force_emoji_font: bool = False) -> None:
     """设置 run 的中西文字体，并移除主题字体覆盖。
 
     Word 中字体可能由主题（theme）覆盖显式配置；为保证导出一致性，
     这里主动移除 `asciiTheme/hAnsiTheme/themeEastAsia/cstheme`。
+    
+    Args:
+        rpr_elem: run 的 rPr 元素
+        font_name: 中文字体名称
+        font_name_latin: 西文字体名称（可选）
+        force_emoji_font: 是否强制使用 emoji 字体（当检测到 emoji 时）
     """
     rFonts = rpr_elem.get_or_add_rFonts()
-    # Set Latin fonts (ascii and hAnsi)
-    latin_font = font_name_latin if font_name_latin else font_name
-    rFonts.set(qn("w:ascii"), latin_font)
-    rFonts.set(qn("w:hAnsi"), latin_font)
-    # Set East Asian fonts
-    rFonts.set(qn("w:eastAsia"), font_name)
-    rFonts.set(qn("w:cs"), font_name)
+    
+    if force_emoji_font:
+        # 使用 Windows 系统 emoji 字体
+        emoji_font = "Segoe UI Emoji"
+        rFonts.set(qn("w:ascii"), emoji_font)
+        rFonts.set(qn("w:hAnsi"), emoji_font)
+        rFonts.set(qn("w:eastAsia"), emoji_font)
+        rFonts.set(qn("w:cs"), emoji_font)
+    else:
+        # Set Latin fonts (ascii and hAnsi)
+        latin_font = font_name_latin if font_name_latin else font_name
+        rFonts.set(qn("w:ascii"), latin_font)
+        rFonts.set(qn("w:hAnsi"), latin_font)
+        # Set East Asian fonts
+        rFonts.set(qn("w:eastAsia"), font_name)
+        rFonts.set(qn("w:cs"), font_name)
+    
     for attr in ("w:asciiTheme", "w:hAnsiTheme", "w:themeEastAsia", "w:cstheme"):
         rFonts.attrib.pop(qn(attr), None)
 
@@ -684,17 +731,22 @@ def _apply_para_formatting(paragraph, config: dict, is_table: bool = False) -> N
         if config.get("italic"):
             run.font.italic = True
         
+        # 检测 run 文本是否包含 emoji
+        has_emoji = _contains_emoji(run.text)
+        
         # 代码块统一使用西文字体（避免等宽字体被中文字体覆盖）
         if config.get("is_code"):
             _set_rfonts(
                 run._element.get_or_add_rPr(),
                 config.get("font_name_latin", config["font_name"]),
+                force_emoji_font=has_emoji,
             )
         else:
             _set_rfonts(
                 run._element.get_or_add_rPr(),
                 config["font_name"],
                 config.get("font_name_latin"),
+                force_emoji_font=has_emoji,
             )
 
 
