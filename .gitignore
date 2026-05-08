@@ -35,6 +35,7 @@ MANIFEST
 # 允许提交打包脚本和相关文档
 !build/build_exe.py
 !build/README.md
+!build/README_PACKAGING.md
 
 # Installer logs
 pip-log.txt

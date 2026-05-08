@@ -11,7 +11,8 @@ pandas[excel,html,xml]~=3.0.1
 xhtml2pdf~=0.2.17
 reportlab~=4.5.0
 
-pillow~=12.1.0
+# 图像处理
+pillow>=10.1.0,<11.0.0
 
 # pandoc
 pypandoc-binary~=1.16.2

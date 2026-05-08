@@ -21,9 +21,9 @@ logger = get_logger(__name__)
 
 # mermaid.ink API 配置
 MERMAID_INK_API = "https://mermaid.ink/img/"
-DEFAULT_TIMEOUT = 10  # 默认超时时间（秒）
-MAX_RETRIES = 3  # 最大重试次数
-RETRY_DELAY = 2  # 重试间隔（秒）
+DEFAULT_TIMEOUT = 30  # 默认超时时间（秒），增加到 30 秒以应对大图片
+MAX_RETRIES = 5  # 最大重试次数，增加到 5 次提高成功率
+RETRY_DELAY = 3  # 重试间隔（秒），增加到 3 秒避免频繁请求
 
 
 def encode_mermaid_code(code: str) -> str:
