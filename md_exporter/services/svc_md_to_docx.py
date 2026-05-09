@@ -243,7 +243,7 @@ STYLE_CONFIGS: list[dict] = [
         "font_size": Pt(12),  # 小四号
         "bold": False,
         "color": RGBColor(0, 0, 0),
-        "first_line_indent": Pt(24),  # 首行缩进2字符
+        "first_line_indent": Pt(0),  # 无缩进
         "left_indent": Pt(0),
         "line_spacing": 1.0,  # 单倍行距
         "space_before": Pt(0),
@@ -258,7 +258,7 @@ STYLE_CONFIGS: list[dict] = [
         "font_size": Pt(12),  # 小四号
         "bold": False,
         "color": RGBColor(0, 0, 0),
-        "first_line_indent": Pt(48),  # 首行缩进4字符
+        "first_line_indent": Pt(0),  # 无缩进
         "left_indent": Pt(0),
         "line_spacing": 1.0,  # 单倍行距
         "space_before": Pt(0),
