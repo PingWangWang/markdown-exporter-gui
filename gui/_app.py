@@ -583,8 +583,11 @@ class MarkdownExporterGUI:
         self.log_text.configure(state="normal")
         s = message.strip()
         
-        # 根据消息内容判断日志类型
-        if s.startswith(("✓", "✅", "✔")):
+        # 根据消息内容判断日志类型（优先级：success > error > warning > summary > service > info > arrow > complete > normal）
+        # 先检查汇总信息（可能在[服务]前缀之后）
+        if "Mermaid 转换汇总" in s or "转换汇总" in s or "总计:" in s or "成功:" in s or "失败:" in s or (s.startswith("=") and len(s) > 10):
+            tag = "summary"
+        elif s.startswith(("✓", "✅", "✔")):
             tag = "success"
         elif s.startswith(("❌", "×")):
             tag = "error"
@@ -598,8 +601,6 @@ class MarkdownExporterGUI:
             tag = "arrow"
         elif s.startswith(("处理完成", "开始处理")):
             tag = "complete"
-        elif s.startswith("=") or s.startswith(("Mermaid 转换汇总:", "  总计:", "  成功:", "  失败:")):
-            tag = "summary"
         else:
             tag = "normal"
         
