@@ -19,22 +19,14 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from _dialogs import ask_file_locked, ask_overwrite, is_file_locked, show_about
-from _version import APP_VERSION
+from gui._dialogs import ask_file_locked, ask_overwrite, is_file_locked, show_about
+from gui._version import APP_VERSION
 
 # 支持的输出格式
 OUTPUT_FORMATS = {
     "DOCX": ("Word 文档", ".docx"),
     "PDF": ("PDF 文档", ".pdf"),
     "HTML": ("HTML 网页", ".html"),
-    "PPTX": ("PowerPoint 演示文稿", ".pptx"),
-    "XLSX": ("Excel 表格", ".xlsx"),
-    "CSV": ("CSV 数据", ".csv"),
-    "JSON": ("JSON 数据", ".json"),
-    "XML": ("XML 数据", ".xml"),
-    "LaTeX": ("LaTeX 文档", ".tex"),
-    "IPYNB": ("Jupyter Notebook", ".ipynb"),
-    "MD": ("Markdown 文件", ".md"),
 }
 
 
@@ -507,9 +499,9 @@ class MarkdownExporterGUI:
 
     def on_format_change(self, event=None):
         """当输出格式改变时的回调"""
-        # 仅DOCX和PPTX格式显示模板选项和保存 Mermaid 图片选项
+        # 仅DOCX格式显示模板选项和保存 Mermaid 图片选项
         output_format = self.get_selected_format()
-        if output_format in ("DOCX", "PPTX"):
+        if output_format == "DOCX":
             self.template_label.grid()
             self.template_frame.grid()
             self.save_mermaid_label.grid()
@@ -546,22 +538,12 @@ class MarkdownExporterGUI:
 
     def select_template(self):
         """选择模板文件"""
-        output_format = self.get_selected_format()
-        if output_format == "DOCX":
-            filetypes = [
-                ("Word 模板文件", "*.docx"),
-                ("所有文件", "*.*"),
-            ]
-            title = "选择 DOCX 模板文件"
-        elif output_format == "PPTX":
-            filetypes = [
-                ("PowerPoint 模板文件", "*.pptx"),
-                ("所有文件", "*.*"),
-            ]
-            title = "选择 PPTX 模板文件"
-        else:
-            return
-        
+        filetypes = [
+            ("Word 模板文件", "*.docx"),
+            ("所有文件", "*.*"),
+        ]
+        title = "选择 DOCX 模板文件"
+
         template = filedialog.askopenfilename(
             title=title,
             filetypes=filetypes
@@ -755,17 +737,9 @@ class MarkdownExporterGUI:
 
                 # 导入 md_exporter 的服务模块
                 from md_exporter.services import (
-                    svc_md_to_csv,
                     svc_md_to_docx,
                     svc_md_to_html,
-                    svc_md_to_ipynb,
-                    svc_md_to_json,
-                    svc_md_to_latex,
-                    svc_md_to_md,
                     svc_md_to_pdf,
-                    svc_md_to_pptx,
-                    svc_md_to_xlsx,
-                    svc_md_to_xml,
                 )
 
                 # 读取 Markdown 文件内容
@@ -800,14 +774,6 @@ class MarkdownExporterGUI:
                     "DOCX": lambda: self._convert_to_docx(md_text, output_file),
                     "PDF": lambda: svc_md_to_pdf.convert_md_to_pdf(md_text, output_file),
                     "HTML": lambda: svc_md_to_html.convert_md_to_html(md_text, output_file),
-                    "PPTX": lambda: self._convert_to_pptx(md_text, output_file),
-                    "XLSX": lambda: svc_md_to_xlsx.convert_md_to_xlsx(md_text, output_file),
-                    "CSV": lambda: svc_md_to_csv.convert_md_to_csv(md_text, output_file),
-                    "JSON": lambda: svc_md_to_json.convert_md_to_json(md_text, output_file),
-                    "XML": lambda: svc_md_to_xml.convert_md_to_xml(md_text, output_file),
-                    "LaTeX": lambda: svc_md_to_latex.convert_md_to_latex(md_text, output_file),
-                    "IPYNB": lambda: svc_md_to_ipynb.convert_md_to_ipynb(md_text, output_file),
-                    "MD": lambda: svc_md_to_md.convert_md_to_md(md_text, output_file),
                 }
 
                 converter = service_map.get(output_format)
@@ -922,52 +888,6 @@ class MarkdownExporterGUI:
         else:
             # 未勾选使用自定义模板，使用默认模板
             svc_md_to_docx.convert_md_to_docx(
-                md_text=md_text,
-                output_path=output_file,
-                convert_mermaid=self.convert_mermaid_images.get(),
-                save_mermaid_images=self.save_mermaid_images.get(),
-                output_dir=output_file.parent
-            )
-
-    def _convert_to_pptx(self, md_text, output_file):
-        """转换 Markdown 到 PPTX，支持自定义模板和 Mermaid 图片保存"""
-        from md_exporter.services import svc_md_to_pptx
-        
-        # 如果启用自定义模板且已选择模板文件，则使用用户模板
-        if self.use_template.get() and self.template_path.get():
-            template = Path(self.template_path.get())
-            if template.exists():
-                self.log_message(f"  使用自定义模板: {template.name}")
-                svc_md_to_pptx.convert_md_to_pptx(
-                    md_text=md_text,
-                    output_path=output_file,
-                    template_path=template,
-                    convert_mermaid=self.convert_mermaid_images.get(),
-                    save_mermaid_images=self.save_mermaid_images.get(),
-                    output_dir=output_file.parent
-                )
-            else:
-                self.log_message(f"  ⚠ 模板文件不存在，使用默认模板")
-                svc_md_to_pptx.convert_md_to_pptx(
-                    md_text=md_text,
-                    output_path=output_file,
-                    convert_mermaid=self.convert_mermaid_images.get(),
-                    save_mermaid_images=self.save_mermaid_images.get(),
-                    output_dir=output_file.parent
-                )
-        elif self.use_template.get() and not self.template_path.get():
-            # 勾选了使用自定义模板，但未选择模板文件，使用默认模板
-            self.log_message(f"  未选择模板文件，使用默认模板")
-            svc_md_to_pptx.convert_md_to_pptx(
-                md_text=md_text,
-                output_path=output_file,
-                convert_mermaid=self.convert_mermaid_images.get(),
-                save_mermaid_images=self.save_mermaid_images.get(),
-                output_dir=output_file.parent
-            )
-        else:
-            # 未勾选使用自定义模板，使用默认模板
-            svc_md_to_pptx.convert_md_to_pptx(
                 md_text=md_text,
                 output_path=output_file,
                 convert_mermaid=self.convert_mermaid_images.get(),
