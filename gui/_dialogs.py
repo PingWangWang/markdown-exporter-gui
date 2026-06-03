@@ -98,8 +98,8 @@ def show_about(app):
             "项目来源",
             [
                 f"版本: {APP_VERSION}",
-                "作者: bowenliang123",
-                "GitHub: https://github.com/bowenliang123/markdown-exporter",
+                "作者: pingwang1994",
+                "GitHub: https://github.com/pingwang1994/markdown-exporter-gui",
             ],
         ),
         (
@@ -212,11 +212,11 @@ def show_about(app):
                                 subprocess.call(['xdg-open', readme_path])
                         else:
                             # 如果本地文件不存在，打开 GitHub URL
-                            webbrowser.open("https://github.com/bowenliang123/markdown-exporter#readme")
+                            webbrowser.open("https://github.com/pingwang1994/markdown-exporter-gui#readme")
                     except Exception:
                         # 出错时回退到 GitHub URL
                         # print(f"Error opening README: {ex}")
-                        webbrowser.open("https://github.com/bowenliang123/markdown-exporter#readme")
+                        webbrowser.open("https://github.com/pingwang1994/markdown-exporter-gui#readme")
 
                 readme_link.bind("<Button-1>", open_readme)
                 readme_link.bind("<Enter>", lambda e: e.widget.config(fg="#4169E1"))

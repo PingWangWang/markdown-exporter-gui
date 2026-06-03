@@ -203,6 +203,5 @@ uv run python run_gui.py
 
 ## 📞 联系方式
 
-作者: bowenliang123  
-邮箱: liang.bowen.123@qq.com  
-仓库: https://github.com/bowenliang123/markdown-exporter/
+作者: pingwang1994
+仓库: https://github.com/pingwang1994/markdown-exporter-gui/
