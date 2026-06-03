@@ -2,7 +2,7 @@
 
 > 一个桌面 GUI 工具，将 Markdown 文件批量转换为 DOCX、PDF、HTML 格式。无需命令行，拖拽文件即可转换。
 
-[![Version](https://img.shields.io/badge/version-3.6.9-blue)](https://github.com/bowenliang123/markdown-exporter/releases)
+[![Version](https://img.shields.io/badge/version-3.6.9-blue)](https://github.com/pingwang1994/markdown-exporter-gui/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-3776AB)](https://www.python.org/)
 
@@ -115,4 +115,4 @@ uv run pytest
 
 ## 作者
 
-bowenliang123 - liang.bowen.123@qq.com
+pingwang1994
