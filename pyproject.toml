@@ -7,6 +7,20 @@ requires-python = ">=3.11"
 authors = [
     { name = "bowenliang123", email = "liang.bowen.123@qq.com" },
 ]
+keywords = ["markdown", "converter", "gui", "docx", "pdf", "html"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing :: Markup",
+]
 
 dependencies = [
     "markdown>=3.10.2",
@@ -42,3 +56,19 @@ module-root = ""
 
 [tool.uv.build-backend.includes]
 assets = "md_exporter/assets/"
+
+[tool.uv]
+# Allow direct development dependency on the project itself
+dev-dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # Line too long (handled by formatter)
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py", "*_test.py"]
