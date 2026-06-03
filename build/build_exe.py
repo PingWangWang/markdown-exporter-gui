@@ -1,7 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 Markdown Exporter GUI 打包脚本
-直接运行: py build_exe.py
+
+使用 uv 管理依赖：
+  uv sync                    # 同步依赖
+  uv run python build/build_exe.py   # 运行打包
+
+或直接运行：
+  python build/build_exe.py
 """
 
 import sys
