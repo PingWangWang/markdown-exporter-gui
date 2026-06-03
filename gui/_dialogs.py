@@ -19,6 +19,25 @@ import webbrowser
 from _version import APP_VERSION
 
 
+def _create_button(parent, text, bg, bg_hover, cmd, padx=6):
+    """统一的按钮创建函数 - 避免重复代码"""
+    b = tk.Button(
+        parent,
+        text=text,
+        width=8,
+        bg=bg,
+        fg="#FFFFFF",
+        relief="flat",
+        font=("Microsoft YaHei UI", 9, "bold"),
+        cursor="hand2",
+        command=cmd,
+    )
+    b.pack(side=tk.LEFT, padx=padx)
+    b.bind("<Enter>", lambda e: b.config(bg=bg_hover))
+    b.bind("<Leave>", lambda e: b.config(bg=bg))
+    return b
+
+
 def is_file_locked(filepath):
     """检测文件是否被其他程序占用（打开）
 
@@ -145,7 +164,7 @@ def show_about(app):
             elif "README.md" in item:
                 item_frame = tk.Frame(body, bg=app.C_BG)
                 item_frame.pack(fill=tk.X, anchor=tk.W, pady=1)
-                
+
                 tk.Label(
                     item_frame,
                     text="  • ",
@@ -154,7 +173,7 @@ def show_about(app):
                     font=("Microsoft YaHei UI", 9),
                     justify="left",
                 ).pack(side=tk.LEFT, anchor=tk.W)
-                
+
                 readme_link = tk.Label(
                     item_frame,
                     text="查看 README.md",
@@ -175,13 +194,13 @@ def show_about(app):
                         else:
                             # 开发环境路径 - 项目根目录
                             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        
+
                         readme_path = os.path.join(base_dir, 'README.md')
-                        
+
                         # 调试信息（可选）
                         # print(f"Looking for README at: {readme_path}")
                         # print(f"File exists: {os.path.exists(readme_path)}")
-                        
+
                         if os.path.exists(readme_path):
                             # 根据操作系统打开文件
                             system = platform.system()
@@ -194,11 +213,11 @@ def show_about(app):
                         else:
                             # 如果本地文件不存在，打开 GitHub URL
                             webbrowser.open("https://github.com/bowenliang123/markdown-exporter#readme")
-                    except Exception as ex:
+                    except Exception:
                         # 出错时回退到 GitHub URL
                         # print(f"Error opening README: {ex}")
                         webbrowser.open("https://github.com/bowenliang123/markdown-exporter#readme")
-                
+
                 readme_link.bind("<Button-1>", open_readme)
                 readme_link.bind("<Enter>", lambda e: e.widget.config(fg="#4169E1"))
                 readme_link.bind("<Leave>", lambda e: e.widget.config(fg="#1E90FF"))
@@ -299,31 +318,14 @@ def ask_overwrite(app, filename):
             result[0] = False
             dlg.destroy()
 
-        def _btn(parent, text, bg, bg_hover, cmd, padx=6):
-            b = tk.Button(
-                parent,
-                text=text,
-                width=8,
-                bg=bg,
-                fg="#FFFFFF",
-                relief="flat",
-                font=("Microsoft YaHei UI", 9, "bold"),
-                cursor="hand2",
-                command=cmd,
-            )
-            b.pack(side=tk.LEFT, padx=padx)
-            b.bind("<Enter>", lambda e: b.config(bg=bg_hover))
-            b.bind("<Leave>", lambda e: b.config(bg=bg))
-            return b
-
         if is_multi:
-            _btn(btn_frame, "本次覆盖", app.C_BTN_RUN, app.C_BTN_RUN_A, on_overwrite_one)
-            _btn(btn_frame, "全部覆盖", "#8E44AD", "#6C3483", on_overwrite_all)
-            _btn(btn_frame, "本次跳过", app.C_BTN_SEL, app.C_BTN_SEL_A, on_skip)
-            _btn(btn_frame, "全部跳过", "#7F8C8D", "#626567", on_skip_all)
+            _create_button(btn_frame, "本次覆盖", app.C_BTN_RUN, app.C_BTN_RUN_A, on_overwrite_one)
+            _create_button(btn_frame, "全部覆盖", "#8E44AD", "#6C3483", on_overwrite_all)
+            _create_button(btn_frame, "本次跳过", app.C_BTN_SEL, app.C_BTN_SEL_A, on_skip)
+            _create_button(btn_frame, "全部跳过", "#7F8C8D", "#626567", on_skip_all)
         else:
-            _btn(btn_frame, "覆  盖", app.C_BTN_RUN, app.C_BTN_RUN_A, on_overwrite_one, padx=8)
-            _btn(btn_frame, "跳  过", app.C_BTN_SEL, app.C_BTN_SEL_A, on_skip, padx=8)
+            _create_button(btn_frame, "覆  盖", app.C_BTN_RUN, app.C_BTN_RUN_A, on_overwrite_one, padx=8)
+            _create_button(btn_frame, "跳  过", app.C_BTN_SEL, app.C_BTN_SEL_A, on_skip, padx=8)
 
         # 居中
         dlg.update_idletasks()
@@ -394,25 +396,8 @@ def ask_file_locked(app, filename):
             result[0] = False
             dlg.destroy()
 
-        def _btn(parent, text, bg, bg_hover, cmd, padx=6):
-            b = tk.Button(
-                parent,
-                text=text,
-                width=8,
-                bg=bg,
-                fg="#FFFFFF",
-                relief="flat",
-                font=("Microsoft YaHei UI", 9, "bold"),
-                cursor="hand2",
-                command=cmd,
-            )
-            b.pack(side=tk.LEFT, padx=padx)
-            b.bind("<Enter>", lambda e: b.config(bg=bg_hover))
-            b.bind("<Leave>", lambda e: b.config(bg=bg))
-            return b
-
-        _btn(btn_frame, "关闭后重试", app.C_BTN_RUN, app.C_BTN_RUN_A, on_retry, padx=8)
-        _btn(btn_frame, "跳  过", app.C_BTN_SEL, app.C_BTN_SEL_A, on_skip, padx=8)
+        _create_button(btn_frame, "关闭后重试", app.C_BTN_RUN, app.C_BTN_RUN_A, on_retry, padx=8)
+        _create_button(btn_frame, "跳  过", app.C_BTN_SEL, app.C_BTN_SEL_A, on_skip, padx=8)
 
         # 居中
         dlg.update_idletasks()

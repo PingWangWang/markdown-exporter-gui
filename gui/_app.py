@@ -22,6 +22,12 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 from gui._dialogs import ask_file_locked, ask_overwrite, is_file_locked, show_about
 from gui._version import APP_VERSION
 
+# UI 尺寸常量
+DEFAULT_WINDOW_WIDTH = 750
+DEFAULT_WINDOW_HEIGHT = 560
+DEFAULT_LISTBOX_HEIGHT = 4
+DEFAULT_LOG_HEIGHT = 7
+
 # 支持的输出格式
 OUTPUT_FORMATS = {
     "DOCX": ("Word 文档", ".docx"),
@@ -38,10 +44,9 @@ class MarkdownExporterGUI:
         self.has_dnd = has_dnd
         self.root.title(f"Markdown Exporter v{APP_VERSION}")
 
-        window_width, window_height = 750, 560
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
-        self.root.geometry(f"{window_width}x{window_height}+{(sw - window_width) // 2}+{(sh - window_height) // 2}")
+        self.root.geometry(f"{DEFAULT_WINDOW_WIDTH}x{DEFAULT_WINDOW_HEIGHT}+{(sw - DEFAULT_WINDOW_WIDTH) // 2}+{(sh - DEFAULT_WINDOW_HEIGHT) // 2}")
         self.root.resizable(False, False)
 
         self._set_window_icon()
@@ -111,12 +116,12 @@ class MarkdownExporterGUI:
         """设置GUI日志回调，使服务模块的日志能在GUI中显示"""
         try:
             from md_exporter.utils.logger_utils import set_gui_log_callback
-            
+
             # 定义一个线程安全的日志回调函数
             def gui_log_callback(message):
                 # 使用after方法确保在主线程中更新UI
                 self.root.after(0, lambda: self._log_message_from_service(message))
-            
+
             set_gui_log_callback(gui_log_callback)
         except ImportError:
             pass  # 如果md_exporter未安装，则忽略
@@ -229,22 +234,38 @@ class MarkdownExporterGUI:
         mf = ttk.Frame(self.root, padding="14 10 14 6")
         mf.pack(fill=tk.BOTH, expand=True)
         mf.columnconfigure(1, weight=1)
+        self._main_frame = mf
         row = 0
 
-        # 选择待处理文件
+        row = self._create_file_section(mf, row)
+        row = self._create_output_dir_section(mf, row)
+        row = self._create_format_section(mf, row)
+        row = self._create_template_section(mf, row)
+        row = self._create_mermaid_convert_section(mf, row)
+        row = self._create_mermaid_save_section(mf, row)
+        row = self._create_action_buttons(mf, row)
+        row = self._create_log_section(mf, row)
+        self._create_footer(mf, row)
+
+        if self.has_dnd:
+            self._register_drop_target()
+
+    # ── 界面子区域 ─────────────────────────────────────────────────────────
+
+    def _create_file_section(self, mf, row):
+        """文件选择区域"""
         ttk.Label(mf, text="选择 Markdown 文件:", style="Field.TLabel").grid(
             row=row, column=0, sticky=tk.NW, pady=4, padx=(0, 8)
         )
         ff = ttk.Frame(mf)
         ff.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
         ff.columnconfigure(0, weight=1)
-        # 文件列表框
         list_frame = tk.Frame(ff, bg=self.C_ENTRY_BG, highlightbackground=self.C_BORDER, highlightthickness=1)
         list_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 6))
         list_frame.columnconfigure(0, weight=1)
         self.file_listbox = tk.Listbox(
             list_frame,
-            height=4,
+            height=DEFAULT_LISTBOX_HEIGHT,
             selectmode=tk.EXTENDED,
             bg=self.C_ENTRY_BG,
             fg="#1F2937",
@@ -259,7 +280,6 @@ class MarkdownExporterGUI:
         list_sb = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.file_listbox.yview)
         list_sb.grid(row=0, column=1, sticky=(tk.N, tk.S), pady=2)
         self.file_listbox.configure(yscrollcommand=list_sb.set)
-        # 按钮列
         btn_col = ttk.Frame(ff)
         btn_col.grid(row=0, column=1, sticky=tk.N)
         ttk.Button(btn_col, text="添加文件", command=self.select_files, style="Select.TButton", width=10).pack(
@@ -269,11 +289,11 @@ class MarkdownExporterGUI:
             pady=(0, 4)
         )
         ttk.Button(btn_col, text="清空列表", command=self.clear_files, style="Select.TButton", width=10).pack()
-        # Delete 键删除选中项
         self.file_listbox.bind("<Delete>", lambda e: self.remove_selected_files())
-        row += 1
+        return row + 1
 
-        # 选择保存位置
+    def _create_output_dir_section(self, mf, row):
+        """保存位置区域"""
         ttk.Label(mf, text="选择保存位置:", style="Field.TLabel").grid(
             row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
         )
@@ -286,118 +306,69 @@ class MarkdownExporterGUI:
         ttk.Button(sf, text="保存位置", command=self.select_output_dir, style="Select.TButton", width=10).grid(
             row=0, column=1
         )
-        row += 1
+        return row + 1
 
-        # 选择输出格式
+    def _create_format_section(self, mf, row):
+        """输出格式选择区域"""
         ttk.Label(mf, text="选择输出格式:", style="Field.TLabel").grid(
             row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
         )
         cf = ttk.Frame(mf)
         cf.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
-        # 使用描述文本作为下拉框选项："Word 文档 (.docx)"
         format_list = [f"{desc} ({ext})" for desc, ext in OUTPUT_FORMATS.values()]
         self.format_combo = ttk.Combobox(cf, values=format_list, state="readonly", width=30)
-        self.format_combo.set("Word 文档 (.docx)")  # 默认选中
+        self.format_combo.set("Word 文档 (.docx)")
         self.format_combo.grid(row=0, column=0, sticky=tk.W, padx=(0, 6))
         self.format_combo.bind("<<ComboboxSelected>>", self.on_format_change)
-        row += 1
+        return row + 1
 
-        # 模板选项（仅DOCX和PPTX格式显示）
+    def _create_template_section(self, mf, row):
+        """模板选项区域"""
         self.template_label = ttk.Label(mf, text="使用自定义模板:", style="Field.TLabel")
-        self.template_label.grid(
-            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
-        )
+        self.template_label.grid(row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
         tf = ttk.Frame(mf)
         tf.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
         tf.columnconfigure(1, weight=1)
-        
-        # 勾选框
-        self.use_template_check = ttk.Checkbutton(
-            tf,
-            text="",
-            variable=self.use_template,
-            command=self.on_template_toggle
-        )
+        self.use_template_check = ttk.Checkbutton(tf, text="", variable=self.use_template, command=self.on_template_toggle)
         self.use_template_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
-        
-        # 文本框
-        template_entry = ttk.Entry(
-            tf,
-            textvariable=self.template_path,
-            state="readonly",
-            width=40
-        )
+        template_entry = ttk.Entry(tf, textvariable=self.template_path, state="readonly", width=40)
         template_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 6))
-        
-        # 按钮
         self.select_template_btn = ttk.Button(
-            tf,
-            text="选择模板",
-            command=self.select_template,
-            style="Select.TButton",
-            width=10,
-            state="disabled"
+            tf, text="选择模板", command=self.select_template, style="Select.TButton", width=10, state="disabled"
         )
         self.select_template_btn.grid(row=0, column=2)
-        
         self.template_frame = tf
-        
-        row += 1
-        
-        # 转换 Mermaid 图片选项（仅DOCX和PPTX格式显示）
+        return row + 1
+
+    def _create_mermaid_convert_section(self, mf, row):
+        """转换 Mermaid 图片选项区域"""
         self.convert_mermaid_label = ttk.Label(mf, text="转换 Mermaid 图片:", style="Field.TLabel")
-        self.convert_mermaid_label.grid(
-            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
-        )
+        self.convert_mermaid_label.grid(row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
         mf3 = ttk.Frame(mf)
         mf3.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
-        
-        self.convert_mermaid_check = ttk.Checkbutton(
-            mf3,
-            text="",
-            variable=self.convert_mermaid_images,
-            command=self.on_convert_mermaid_toggle
-        )
+        self.convert_mermaid_check = ttk.Checkbutton(mf3, text="", variable=self.convert_mermaid_images)
         self.convert_mermaid_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
-        
-        # 添加说明文字和可点击链接
-        hint_label = ttk.Label(
-            mf3,
-            text="该功能需联网访问 https://mermaid.ink",
-            style="Link.TLabel",
-        )
+        hint_label = ttk.Label(mf3, text="该功能需联网访问 https://mermaid.ink", style="Link.TLabel")
         hint_label.grid(row=0, column=1, sticky=tk.W, padx=(0, 4))
         hint_label.bind("<Button-1>", lambda e: self._open_url("https://mermaid.ink"))
-        
         self.convert_mermaid_frame = mf3
-        
-        row += 1
-        
-        # 保存 Mermaid 图片选项（仅DOCX和PPTX格式显示）
+        return row + 1
+
+    def _create_mermaid_save_section(self, mf, row):
+        """保存 Mermaid 图片选项区域"""
         self.save_mermaid_label = ttk.Label(mf, text="保存 Mermaid 图片:", style="Field.TLabel")
-        self.save_mermaid_label.grid(
-            row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8)
-        )
+        self.save_mermaid_label.grid(row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
         mf2 = ttk.Frame(mf)
         mf2.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
-        
-        self.save_mermaid_check = ttk.Checkbutton(
-            mf2,
-            text="",
-            variable=self.save_mermaid_images,
-            command=self.on_save_mermaid_toggle
-        )
+        self.save_mermaid_check = ttk.Checkbutton(mf2, text="", variable=self.save_mermaid_images)
         self.save_mermaid_check.grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
-        
         self.save_mermaid_frame = mf2
-        
-        row += 1
+        return row + 1
 
-        # 分割线
+    def _create_action_buttons(self, mf, row):
+        """分割线 + 操作按钮"""
         ttk.Separator(mf, orient="horizontal").grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=6)
         row += 1
-
-        # 操作按钮
         bf = ttk.Frame(mf)
         bf.grid(row=row, column=0, columnspan=2, pady=4)
         self.process_button = ttk.Button(
@@ -411,30 +382,23 @@ class MarkdownExporterGUI:
             bf, text="📄  打开文档", command=self.open_last_document, style="Open.TButton", width=12, state="disabled"
         )
         self.open_doc_button.pack(side=tk.LEFT, padx=6)
-        row += 1
+        return row + 1
 
-        # 日志区域
+    def _create_log_section(self, mf, row):
+        """日志区域"""
         ttk.Label(mf, text="处理日志:", style="Log.TLabel").grid(
             row=row, column=0, sticky=tk.NW, pady=(8, 2), padx=(0, 8)
         )
-        
-        # 日志区域右侧框架
         log_right_frame = ttk.Frame(mf)
         log_right_frame.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=(8, 2))
         log_right_frame.columnconfigure(0, weight=1)
-        
-        # 调试日志开关（与日志框左对齐）
         debug_check = ttk.Checkbutton(
-            log_right_frame,
-            text="显示详细日志",
-            variable=self.debug_logging,
-            command=self._on_debug_logging_change
+            log_right_frame, text="显示详细日志", variable=self.debug_logging, command=self._on_debug_logging_change
         )
         debug_check.grid(row=0, column=0, sticky=tk.W)
-        
         self.log_text = scrolledtext.ScrolledText(
             mf,
-            height=7,
+            height=DEFAULT_LOG_HEIGHT,
             wrap=tk.WORD,
             font=("Consolas", 9),
             bg=self.C_LOG_BG,
@@ -446,33 +410,30 @@ class MarkdownExporterGUI:
             borderwidth=0,
             state="disabled",
         )
-        self.log_text.grid(row=row+1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(2, 2))
-        mf.rowconfigure(row+1, weight=1)
+        self.log_text.grid(row=row + 1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(2, 2))
+        mf.rowconfigure(row + 1, weight=1)
         for tag, color in [
-            ("success", "#00AA00"),  # 绿色
-            ("error", "#CC0000"),     # 红色
-            ("warning", "#CC9900"),   # 黄色/橙色
-            ("info", "#0066CC"),      # 蓝色
-            ("arrow", "#666666"),     # 灰色
-            ("complete", "#0066CC"),  # 蓝色
-            ("summary", "#CC6600"),   # 橙色
-            ("service", "#666666"),   # 灰色（服务日志）
-            ("normal", self.C_LOG_FG), # 黑色
+            ("success", "#00AA00"),
+            ("error", "#CC0000"),
+            ("warning", "#CC9900"),
+            ("info", "#0066CC"),
+            ("arrow", "#666666"),
+            ("complete", "#0066CC"),
+            ("summary", "#CC6600"),
+            ("service", "#666666"),
+            ("normal", self.C_LOG_FG),
         ]:
             self.log_text.tag_configure(tag, foreground=color)
-        row += 2
+        return row + 2
 
-        # 底部链接
+    def _create_footer(self, mf, row):
+        """底部链接"""
         lf = ttk.Frame(mf)
         lf.grid(row=row, column=0, columnspan=2, pady=(4, 2), sticky=(tk.W, tk.E))
         lbl = ttk.Label(lf, text="查看项目说明及帮助文档 >>", style="Link.TLabel")
         lbl.pack(side=tk.LEFT)
         lbl.bind("<Button-1>", lambda e: self.show_about())
         ttk.Label(lf, text=f"v{APP_VERSION}", style="Log.TLabel").pack(side=tk.RIGHT)
-
-        # 拖拽支持
-        if self.has_dnd:
-            self._register_drop_target()
 
     def _register_drop_target(self):
         """注册整个窗口为拖拽目标，接受 .md / .markdown 文件"""
@@ -527,14 +488,6 @@ class MarkdownExporterGUI:
         else:
             self.select_template_btn.configure(state="disabled")
             self.template_path.set("")
-    
-    def on_save_mermaid_toggle(self):
-        """保存 Mermaid 图片开关变化时的回调"""
-        pass  # 目前不需要额外处理
-    
-    def on_convert_mermaid_toggle(self):
-        """转换 Mermaid 图片开关变化时的回调"""
-        pass  # 目前不需要额外处理
 
     def select_template(self):
         """选择模板文件"""
@@ -563,32 +516,29 @@ class MarkdownExporterGUI:
 
     def log_message(self, message):
         self.log_text.configure(state="normal")
-        s = message.strip()
-        
-        # 根据消息内容判断日志类型（优先级：success > error > warning > summary > service > info > arrow > complete > normal）
-        # 先检查汇总信息（可能在[服务]前缀之后）
-        if "Mermaid 转换汇总" in s or "转换汇总" in s or "总计:" in s or "成功:" in s or "失败:" in s or (s.startswith("=") and len(s) > 10):
-            tag = "summary"
-        elif s.startswith(("✓", "✅", "✔")):
-            tag = "success"
-        elif s.startswith(("❌", "×")):
-            tag = "error"
-        elif s.startswith(("⚠", "Warning", "warning")):
-            tag = "warning"
-        elif s.startswith(("[服务]",)):
-            tag = "service"  # 服务模块的日志
-        elif s.startswith(("[",)) and "]" in s:
-            tag = "info"
-        elif s.startswith(("→", "  →")):
-            tag = "arrow"
-        elif s.startswith(("处理完成", "开始处理")):
-            tag = "complete"
-        else:
-            tag = "normal"
-        
+        tag = self._resolve_log_tag(message.strip())
         self.log_text.insert(tk.END, message + "\n", tag)
         self.log_text.see(tk.END)
         self.log_text.configure(state="disabled")
+
+    @staticmethod
+    def _resolve_log_tag(message):
+        """根据消息内容判断日志标签类型"""
+        rules = [
+            ("summary", lambda s: any(kw in s for kw in ["Mermaid 转换汇总", "转换汇总", "总计:", "成功:", "失败:"]) or (s.startswith("=") and len(s) > 10)),
+            ("success", lambda s: s.startswith(("✓", "✅", "✔"))),
+            ("error", lambda s: s.startswith(("❌", "×"))),
+            ("warning", lambda s: s.startswith(("⚠", "Warning", "warning"))),
+            ("service", lambda s: s.startswith(("[服务]",))),
+            ("info", lambda s: s.startswith(("[",)) and "]" in s),
+            ("arrow", lambda s: s.startswith(("→", "  →"))),
+            ("complete", lambda s: s.startswith(("处理完成", "开始处理"))),
+        ]
+
+        for tag, condition in rules:
+            if condition(message):
+                return tag
+        return "normal"
 
     # ── 文件选择 & 目录操作 ───────────────────────────────────────────────────
 
@@ -664,6 +614,64 @@ class MarkdownExporterGUI:
 
     # ── 文件处理 ──────────────────────────────────────────────────────────────
 
+    def _setup_pandoc(self):
+        """配置 Pandoc 路径（支持打包环境）"""
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            pandoc_exe = Path(meipass) / "pypandoc" / "files" / "pandoc.exe"
+            if pandoc_exe.exists():
+                os.environ["PYPANDOC_PANDOC"] = str(pandoc_exe)
+                import pypandoc
+                pypandoc._pandoc_path = None
+                self.log_message(f"  使用内置 Pandoc: {pandoc_exe.name}")
+
+    def _prepare_output_file(self, file_path, output_format):
+        """准备输出文件路径"""
+        stem = Path(file_path).stem
+        output_file = Path(self.output_dir.get()) / f"{stem}{OUTPUT_FORMATS[output_format][1]}"
+        self.log_message(f"  → 准备保存到: {output_file.name}")
+        return output_file
+
+    def _check_file_exists_and_overwrite(self, output_file):
+        """检查文件是否存在，处理覆盖/重试/跳过逻辑。返回 True 表示继续，False 表示用户选择跳过"""
+        if not output_file.exists():
+            return True
+
+        if is_file_locked(str(output_file)):
+            self.log_message(f"  ⚠ 文件被占用: {output_file.name}")
+            if self._ask_file_locked(output_file.name):
+                return True  # 继续重试
+            self.log_message(f"  ✗ 已跳过: {output_file.name}")
+            return False
+
+        if not self._ask_overwrite(output_file.name):
+            self.log_message(f"  ✗ 已跳过: {output_file.name}")
+            return False
+
+        return True
+
+    def _execute_conversion(self, md_text, output_file, output_format):
+        """根据格式执行相应的转换"""
+        from md_exporter.services import svc_md_to_html, svc_md_to_pdf
+
+        service_map = {
+            "DOCX": lambda: self._convert_to_docx(md_text, output_file),
+            "PDF": lambda: svc_md_to_pdf.convert_md_to_pdf(md_text, output_file),
+            "HTML": lambda: svc_md_to_html.convert_md_to_html(md_text, output_file),
+        }
+        converter = service_map.get(output_format)
+        if converter:
+            converter()
+        else:
+            raise ValueError(f"不支持的输出格式: {output_format}")
+
+    def _should_retry_on_error(self, error_msg, retry_count, max_retries):
+        """判断是否应该根据错误重试（文件被占用等）"""
+        error_msg = str(error_msg).lower()
+        is_file_error = any(k in error_msg for k in
+            ["permission", "denied", "占用", "pandoc", "utf-8", "ioerror", "errno"])
+        return is_file_error and retry_count < max_retries - 1
+
     def start_processing(self):
         if not self.input_files:
             messagebox.showwarning("警告", "请先选择要处理的文件！")
@@ -716,100 +724,25 @@ class MarkdownExporterGUI:
     def convert_file(self, file_path, output_format):
         """转换单个文件并写入输出目录"""
         max_retries = 3
-        retry_count = 0
 
-        while retry_count < max_retries:
+        for retry_count in range(max_retries):
             try:
-                # 配置 pandoc 路径（支持打包后的环境）
-                import os
-
-                meipass = getattr(sys, "_MEIPASS", None)
-                if meipass:
-                    # 打包后的环境，使用内置的 pandoc
-                    pandoc_exe = Path(meipass) / "pypandoc" / "files" / "pandoc.exe"
-                    if pandoc_exe.exists():
-                        os.environ["PYPANDOC_PANDOC"] = str(pandoc_exe)
-                        # 强制 pypandoc 重新查找 pandoc
-                        import pypandoc
-
-                        pypandoc._pandoc_path = None  # 清除缓存
-                        self.log_message(f"  使用内置 Pandoc: {pandoc_exe.name}")
-
-                # 导入 md_exporter 的服务模块
-                from md_exporter.services import (
-                    svc_md_to_docx,
-                    svc_md_to_html,
-                    svc_md_to_pdf,
-                )
-
-                # 读取 Markdown 文件内容
+                self._setup_pandoc()
                 md_text = Path(file_path).read_text(encoding="utf-8")
-                stem = Path(file_path).stem
-                output_file = Path(self.output_dir.get()) / f"{stem}{OUTPUT_FORMATS[output_format][1]}"
+                output_file = self._prepare_output_file(file_path, output_format)
 
-                self.log_message(f"  → 准备保存到: {output_file.name}")
+                if not self._check_file_exists_and_overwrite(output_file):
+                    return  # 用户选择跳过
 
-                # 检查文件是否已存在
-                if output_file.exists():
-                    # 检测文件是否被占用
-                    if is_file_locked(str(output_file)):
-                        self.log_message(f"  ⚠ 文件被占用: {output_file.name}")
-                        if self._ask_file_locked(output_file.name):
-                            # 用户选择关闭后重试
-                            self.log_message(f"  正在重试: {output_file.name}")
-                            retry_count += 1
-                            continue
-                        else:
-                            # 用户选择跳过
-                            self.log_message(f"  ✗ 已跳过: {output_file.name}")
-                            return
-
-                    # 文件未被占用，询问是否覆盖
-                    if not self._ask_overwrite(output_file.name):
-                        self.log_message(f"  ✗ 已跳过: {output_file.name}")
-                        return
-
-                # 根据选择的格式调用相应的服务
-                service_map = {
-                    "DOCX": lambda: self._convert_to_docx(md_text, output_file),
-                    "PDF": lambda: svc_md_to_pdf.convert_md_to_pdf(md_text, output_file),
-                    "HTML": lambda: svc_md_to_html.convert_md_to_html(md_text, output_file),
-                }
-
-                converter = service_map.get(output_format)
-                if converter:
-                    converter()
-                    self.last_output_file = str(output_file)
-                else:
-                    raise ValueError(f"不支持的输出格式: {output_format}")
-
-                # 成功完成，退出重试循环
-                break
+                self._execute_conversion(md_text, output_file, output_format)
+                self.last_output_file = str(output_file)
+                break  # 成功，退出重试循环
 
             except ImportError as e:
                 raise RuntimeError(f"模块导入失败: {e}\n请确保已安装 md-exporter 包")
             except Exception as e:
-                # 检查是否是写入失败（可能是文件被占用）
-                error_msg = str(e).lower()
-                # 检测更多类型的错误：权限、占用、IO错误、Pandoc输出错误等
-                is_file_error = (
-                    "permission" in error_msg
-                    or "denied" in error_msg
-                    or "占用" in error_msg
-                    or "pandoc" in error_msg
-                    or "utf-8" in error_msg
-                    or "ioerror" in error_msg
-                    or "errno" in error_msg
-                )
-
-                if is_file_error and retry_count < max_retries - 1:
-                    self.log_message(f"  ⚠ 写入失败，可能是文件被占用: {output_file.name}")
-                    if self._ask_file_locked(output_file.name):
-                        self.log_message(f"  正在重试: {output_file.name}")
-                        retry_count += 1
-                        continue
-                    else:
-                        raise RuntimeError(f"转换文件 {file_path} 失败: {e}")
+                if self._should_retry_on_error(str(e), retry_count, max_retries):
+                    self.log_message("  ⚠ 写入失败，可能是文件被占用，正在重试...")
                 else:
                     raise RuntimeError(f"转换文件 {file_path} 失败: {e}")
 
@@ -852,48 +785,26 @@ class MarkdownExporterGUI:
     def _convert_to_docx(self, md_text, output_file):
         """转换 Markdown 到 DOCX，支持自定义模板和 Mermaid 图片保存"""
         from md_exporter.services import svc_md_to_docx
-        
-        # 如果启用自定义模板且已选择模板文件，则使用用户模板
+
+        template = None
         if self.use_template.get() and self.template_path.get():
-            template = Path(self.template_path.get())
-            if template.exists():
-                self.log_message(f"  使用自定义模板: {template.name}")
-                svc_md_to_docx.convert_md_to_docx(
-                    md_text=md_text,
-                    output_path=output_file,
-                    template_path=template,
-                    convert_mermaid=self.convert_mermaid_images.get(),
-                    save_mermaid_images=self.save_mermaid_images.get(),
-                    output_dir=output_file.parent
-                )
+            t = Path(self.template_path.get())
+            if t.exists():
+                self.log_message(f"  使用自定义模板: {t.name}")
+                template = t
             else:
-                self.log_message(f"  ⚠ 模板文件不存在，使用默认模板")
-                svc_md_to_docx.convert_md_to_docx(
-                    md_text=md_text,
-                    output_path=output_file,
-                    convert_mermaid=self.convert_mermaid_images.get(),
-                    save_mermaid_images=self.save_mermaid_images.get(),
-                    output_dir=output_file.parent
-                )
-        elif self.use_template.get() and not self.template_path.get():
-            # 勾选了使用自定义模板，但未选择模板文件，使用默认模板
-            self.log_message(f"  未选择模板文件，使用默认模板")
-            svc_md_to_docx.convert_md_to_docx(
-                md_text=md_text,
-                output_path=output_file,
-                convert_mermaid=self.convert_mermaid_images.get(),
-                save_mermaid_images=self.save_mermaid_images.get(),
-                output_dir=output_file.parent
-            )
-        else:
-            # 未勾选使用自定义模板，使用默认模板
-            svc_md_to_docx.convert_md_to_docx(
-                md_text=md_text,
-                output_path=output_file,
-                convert_mermaid=self.convert_mermaid_images.get(),
-                save_mermaid_images=self.save_mermaid_images.get(),
-                output_dir=output_file.parent
-            )
+                self.log_message("  ⚠ 模板文件不存在，使用默认模板")
+        elif self.use_template.get():
+            self.log_message("  未选择模板文件，使用默认模板")
+
+        svc_md_to_docx.convert_md_to_docx(
+            md_text=md_text,
+            output_path=output_file,
+            template_path=template,
+            convert_mermaid=self.convert_mermaid_images.get(),
+            save_mermaid_images=self.save_mermaid_images.get(),
+            output_dir=output_file.parent,
+        )
 
     def _open_url(self, url):
         """在默认浏览器中打开URL"""
